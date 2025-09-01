@@ -43,7 +43,9 @@ fun NavigationApp() {
                 message = "Please enter your details to log in your account."
             )
         }
-        composable(Screen.Menu.name) { Text("Menu Screen") }
+        composable(Screen.Menu.name) {
+            MenuScreen()
+        }
         composable(Screen.Order.name) { Text("Order Screen") }
         composable(Screen.Cart.name) { Text("Cart Screen") }
         composable(Screen.Payment.name) { Text("Payment Screen") }
