@@ -1,8 +1,10 @@
 package com.example.taiwanesehouse
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -10,43 +12,37 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Calendar
+import android.app.DatePickerDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
+import java.time.format.TextStyle
 
 @Composable
 fun PaymentScreen() {
-    var currentScreen by remember { mutableStateOf("method") }
-    var selectedMethod by remember { mutableStateOf("Card") }
-
-    when (currentScreen) {
-        "method" -> PaymentMethodScreen(
-            selectedMethod = selectedMethod,
-            onMethodSelected = { selectedMethod = it },
-            onPayClick = {
-                currentScreen = when (selectedMethod) {
-                    "Card" -> "card"
-                    "E-Wallet" -> "e-wallet"
-                    "Counter" -> "counter"
-                    else -> "method"
-                }
-            }
-        )
-
-        "card" -> CardPaymentScreen(onBackClick = { currentScreen = "method" })
-        "e-wallet" -> EWalletPaymentScreen(onBackClick = { currentScreen = "method" })
-        "counter" -> CounterPaymentScreen(onBackClick = { currentScreen = "method" })
-    }
+    PaymentMethodScreen()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentMethodScreen(
-    selectedMethod: String,
-    onMethodSelected: (String) -> Unit,
-    onPayClick: () -> Unit,
     onBackClick: () -> Unit = {}
 ) {
+    var selectedMethod by remember { mutableStateOf("Card") }
+    var showCardSheet by remember { mutableStateOf(false) }
+    var showTngSheet by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -95,28 +91,34 @@ fun PaymentMethodScreen(
                 icon = "💳",
                 title = "Credit or Debit Card",
                 selected = selectedMethod == "Card",
-                onClick = { onMethodSelected("Card") }
+                onClick = { selectedMethod = "Card" }
             )
 
             PaymentOptionCard(
                 icon = "📱",
                 title = "E-Wallet",
                 selected = selectedMethod == "E-Wallet",
-                onClick = { onMethodSelected("E-Wallet") }
+                onClick = { selectedMethod = "E-Wallet" }
             )
 
             PaymentOptionCard(
                 icon = "🏪",
                 title = "Pay at Counter",
                 selected = selectedMethod == "Counter",
-                onClick = { onMethodSelected("Counter") }
+                onClick = { selectedMethod = "Counter" }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = { onPayClick() },
+                onClick = {
+                    when (selectedMethod) {
+                        "Card" -> showCardSheet = true
+                        "E-Wallet" -> showTngSheet = true
+                        "Counter" -> {}
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(100.dp)
@@ -133,6 +135,249 @@ fun PaymentMethodScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
             BottomNavigationBar()
+        }
+    }
+
+    if (showCardSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showCardSheet = false },
+            containerColor = Color.White
+        ) {
+            CardPaymentFormSheet(
+                onConfirm = { showCardSheet = false }
+            )
+        }
+    }
+
+    if (showTngSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showTngSheet = false },
+            containerColor = Color.White
+        ) {
+            TngPaymentFormSheet(
+                onConfirm = { showTngSheet = false }
+            )
+        }
+    }
+}
+
+@Composable
+fun CardPaymentFormSheet(onConfirm: () -> Unit) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+
+    var cardField by remember { mutableStateOf(TextFieldValue("")) }
+    var expiryDate by remember { mutableStateOf("") }
+    var cvv by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text("Enter Card Details", style = MaterialTheme.typography.titleLarge)
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = cardField,
+            onValueChange = { newValue ->
+                if (newValue.composition != null) {
+                    cardField = newValue
+                    return@OutlinedTextField
+                }
+
+                val digits = newValue.text.filter { it.isDigit() }.take(16)
+                val formatted = digits.chunked(4).joinToString(" ")
+
+                val digitsBeforeCursor = newValue.text.take(newValue.selection.start).count { it.isDigit() }
+                val spacesBefore = digitsBeforeCursor / 4
+                val newCursorPos = (digitsBeforeCursor + spacesBefore).coerceAtMost(formatted.length)
+
+                cardField = TextFieldValue(
+                    text = formatted,
+                    selection = TextRange(newCursorPos)
+                )
+            },
+            label = { Text("Card Number") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 18.sp
+            )
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = expiryDate,
+            onValueChange = {},
+            label = { Text("Expiry Date") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    DatePickerDialog(
+                        context,
+                        { _, selectedYear, selectedMonth, _ ->
+                            expiryDate = String.format("%02d/%02d", selectedMonth + 1, selectedYear % 100)
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(Calendar.DAY_OF_MONTH)
+                    ).show()
+                },
+            enabled = false,
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = cvv,
+            onValueChange = { input -> cvv = input.filter { ch -> ch.isDigit() }.take(4) },
+            label = { Text("CVV") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Button(
+            onClick = {
+                val cleanCardLen = cardField.text.replace(" ", "").length
+                if (cleanCardLen == 16 && cvv.length in 3..4 && expiryDate.isNotBlank()) {
+                    Toast.makeText(context, "Payment Successful", Toast.LENGTH_SHORT).show()
+                    onConfirm()
+                } else {
+                    Toast.makeText(context, "Please enter valid card details", Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Confirm Payment",
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+        }
+    }
+}
+
+@Composable
+fun TngPaymentFormSheet(onConfirm: () -> Unit) {
+    val context = LocalContext.current
+
+    var selectedCountry by remember { mutableStateOf("Malaysia") }
+    var countryCode by remember { mutableStateOf("+60") }
+    var expanded by remember { mutableStateOf(false) }
+
+    var phone by remember { mutableStateOf("") }
+    var otp by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text("TNG eWallet", style = MaterialTheme.typography.titleLarge)
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Country Code Box
+            Box {
+                OutlinedButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.width(100.dp)
+                ) {
+                    Text(countryCode)
+                }
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Malaysia (+60)") },
+                        onClick = {
+                            selectedCountry = "Malaysia"
+                            countryCode = "+60"
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Singapore (+65)") },
+                        onClick = {
+                            selectedCountry = "Singapore"
+                            countryCode = "+65"
+                            expanded = false
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Phone Number Input
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it.filter { ch -> ch.isDigit() } },
+                label = { Text("Phone Number") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // OTP Input
+        OutlinedTextField(
+            value = otp,
+            onValueChange = { otp = it.filter { ch -> ch.isDigit() }.take(6) },
+            label = { Text("Enter OTP") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Confirm Payment Button
+        Button(
+            onClick = {
+                val validPhone = when (countryCode) {
+                    "+60" -> phone.length in 9..10
+                    "+65" -> phone.length == 8
+                    else -> false
+                }
+                if (validPhone && otp.length == 6) {
+                    Toast.makeText(context, "Payment Successful", Toast.LENGTH_SHORT).show()
+                    onConfirm()
+                } else {
+                    Toast.makeText(context, "Invalid Phone or OTP", Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                "Confirm Payment",
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
         }
     }
 }
@@ -187,51 +432,6 @@ fun BottomNavigationBar() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("👤", fontSize = 28.sp)
             Text("Me", style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-@Composable
-fun CardPaymentScreen(onBackClick: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("💳 Credit/Debit Card Payment Page", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { onBackClick() }) {
-            Text("Back")
-        }
-    }
-}
-
-@Composable
-fun EWalletPaymentScreen(onBackClick: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("📱 E-Wallet Payment Page", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { onBackClick() }) {
-            Text("Back")
-        }
-    }
-}
-
-@Composable
-fun CounterPaymentScreen(onBackClick: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("🏪 Pay at Counter Page", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { onBackClick() }) {
-            Text("Back")
         }
     }
 }
