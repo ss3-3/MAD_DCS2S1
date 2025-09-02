@@ -1,5 +1,6 @@
 package com.example.taiwanesehouse
 
+import android.R.attr
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,12 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Calendar
 import android.app.DatePickerDialog
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -27,17 +28,34 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
-import java.time.format.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun PaymentScreen() {
-    PaymentMethodScreen()
+    var currentScreen by remember { mutableStateOf("method") }
+
+    when (currentScreen) {
+        "method" -> PaymentMethodScreen(
+            onBackClick = {},
+            onSuccess = { currentScreen = "success" }
+        )
+        "success" -> PaymentSuccessScreen(
+            transactionId = "TXN-${System.currentTimeMillis()}",
+            onBackClick = { currentScreen = "method" },
+            onHomeClick = {}
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentMethodScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onSuccess: () -> Unit
 ) {
     var selectedMethod by remember { mutableStateOf("Card") }
     var showCardSheet by remember { mutableStateOf(false) }
@@ -87,21 +105,21 @@ fun PaymentMethodScreen(
                 modifier = Modifier.padding(top = 16.dp, bottom = 20.dp)
             )
 
-            PaymentOptionCard(
+            PaymentMethod(
                 icon = "💳",
                 title = "Credit or Debit Card",
                 selected = selectedMethod == "Card",
                 onClick = { selectedMethod = "Card" }
             )
 
-            PaymentOptionCard(
+            PaymentMethod(
                 icon = "📱",
                 title = "E-Wallet",
                 selected = selectedMethod == "E-Wallet",
                 onClick = { selectedMethod = "E-Wallet" }
             )
 
-            PaymentOptionCard(
+            PaymentMethod(
                 icon = "🏪",
                 title = "Pay at Counter",
                 selected = selectedMethod == "Counter",
@@ -144,7 +162,10 @@ fun PaymentMethodScreen(
             containerColor = Color.White
         ) {
             CardPaymentFormSheet(
-                onConfirm = { showCardSheet = false }
+                onConfirm = {
+                    showCardSheet = false
+                    onSuccess()
+                }
             )
         }
     }
@@ -155,7 +176,10 @@ fun PaymentMethodScreen(
             containerColor = Color.White
         ) {
             TngPaymentFormSheet(
-                onConfirm = { showTngSheet = false }
+                onConfirm = {
+                    showTngSheet = false
+                    onSuccess()
+                }
             )
         }
     }
@@ -249,7 +273,6 @@ fun CardPaymentFormSheet(onConfirm: () -> Unit) {
             onClick = {
                 val cleanCardLen = cardField.text.replace(" ", "").length
                 if (cleanCardLen == 16 && cvv.length in 3..4 && expiryDate.isNotBlank()) {
-                    Toast.makeText(context, "Payment Successful", Toast.LENGTH_SHORT).show()
                     onConfirm()
                 } else {
                     Toast.makeText(context, "Please enter valid card details", Toast.LENGTH_SHORT).show()
@@ -293,7 +316,6 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Country Code Box
             Box {
                 OutlinedButton(
                     onClick = { expanded = true },
@@ -327,7 +349,6 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Phone Number Input
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it.filter { ch -> ch.isDigit() } },
@@ -340,7 +361,6 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // OTP Input
         OutlinedTextField(
             value = otp,
             onValueChange = { otp = it.filter { ch -> ch.isDigit() }.take(6) },
@@ -352,7 +372,6 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Confirm Payment Button
         Button(
             onClick = {
                 val validPhone = when (countryCode) {
@@ -361,7 +380,6 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
                     else -> false
                 }
                 if (validPhone && otp.length == 6) {
-                    Toast.makeText(context, "Payment Successful", Toast.LENGTH_SHORT).show()
                     onConfirm()
                 } else {
                     Toast.makeText(context, "Invalid Phone or OTP", Toast.LENGTH_SHORT).show()
@@ -376,14 +394,14 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
             Text(
                 "Confirm Payment",
                 color = Color.White,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         }
     }
 }
 
 @Composable
-fun PaymentOptionCard(
+fun PaymentMethod(
     icon: String,
     title: String,
     selected: Boolean,
@@ -408,6 +426,130 @@ fun PaymentOptionCard(
                 modifier = Modifier.weight(1f)
             )
             RadioButton(selected = selected, onClick = { onClick() })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PaymentSuccessScreen(
+    transactionId: String = "1234-1234-1234",
+    onBackClick: () -> Unit = {},
+    onHomeClick: () -> Unit = {}
+) {
+    val transactionIdValue = "TXN-" + (100000..999999).random()
+    val currentTime by remember {
+        mutableStateOf(
+            SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Payment Details",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color.Black
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { onBackClick() }) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.Black
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFFFFC107),
+                    titleContentColor = Color.Black,
+                    navigationIconContentColor = Color.Black
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
+        ) {
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = "Success",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(160.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                "Payment\nSuccessful",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                "Transaction ID: $transactionIdValue",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Black
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 24.dp))
+
+            Text(
+                "Order Confirmed",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Normal
+                ),
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                "Today at $currentTime",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Normal
+                ),
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = { onHomeClick() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .padding(bottom = 32.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    "Back to Home",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            BottomNavigationBar()
         }
     }
 }
