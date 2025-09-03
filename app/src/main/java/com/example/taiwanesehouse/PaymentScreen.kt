@@ -1,13 +1,11 @@
 package com.example.taiwanesehouse
 
-import android.R.attr
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Calendar
 import android.app.DatePickerDialog
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,20 +33,60 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentScreen() {
-    var currentScreen by remember { mutableStateOf("method") }
+    var showCardSheet by remember { mutableStateOf(false) }
+    var showTngSheet by remember { mutableStateOf(false) }
+    var showSuccess by remember { mutableStateOf(false) }
+    var paymentTime by remember { mutableStateOf("") }
+    var transactionId by remember { mutableStateOf("") }
 
-    when (currentScreen) {
-        "method" -> PaymentMethodScreen(
+    if (showSuccess) {
+        PaymentSuccessScreen(
+            transactionId = transactionId,
+            paymentTime = paymentTime,
+            onBackClick = { showSuccess = false },
+            onHomeClick = { showSuccess = false }
+        )
+    } else {
+        PaymentMethodScreen(
             onBackClick = {},
-            onSuccess = { currentScreen = "success" }
+            onCardPay = { showCardSheet = true},
+            onTngPay = { showTngSheet = true}
         )
-        "success" -> PaymentSuccessScreen(
-            transactionId = "TXN-${System.currentTimeMillis()}",
-            onBackClick = { currentScreen = "method" },
-            onHomeClick = {}
-        )
+    }
+
+    if (showCardSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showCardSheet = false },
+            containerColor = Color.White
+        ) {
+            CardPaymentFormSheet(
+                onConfirm = { time ->
+                    showCardSheet = false
+                    paymentTime = time
+                    transactionId = "TXN-${(100000..999999).random()}"
+                    showSuccess = true
+                }
+            )
+        }
+    }
+
+    if (showTngSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showTngSheet = false },
+            containerColor = Color.White
+        ) {
+            TngPaymentFormSheet(
+                onConfirm = { time ->
+                    showTngSheet = false
+                    paymentTime = time
+                    transactionId = "TXN-${(100000..999999).random()}"
+                    showSuccess = true
+                }
+            )
+        }
     }
 }
 
@@ -55,11 +94,10 @@ fun PaymentScreen() {
 @Composable
 fun PaymentMethodScreen(
     onBackClick: () -> Unit = {},
-    onSuccess: () -> Unit
+    onCardPay: () -> Unit,
+    onTngPay: () -> Unit
 ) {
     var selectedMethod by remember { mutableStateOf("Card") }
-    var showCardSheet by remember { mutableStateOf(false) }
-    var showTngSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -76,7 +114,7 @@ fun PaymentMethodScreen(
                 navigationIcon = {
                     IconButton(onClick = { onBackClick() }) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = Color.Black
                         )
@@ -106,25 +144,25 @@ fun PaymentMethodScreen(
             )
 
             PaymentMethod(
-                icon = "💳",
-                title = "Credit or Debit Card",
-                selected = selectedMethod == "Card",
-                onClick = { selectedMethod = "Card" }
-            )
+                "💳",
+                "Credit or Debit Card",
+                selectedMethod == "Card") {
+                selectedMethod = "Card"
+            }
 
             PaymentMethod(
-                icon = "📱",
-                title = "E-Wallet",
-                selected = selectedMethod == "E-Wallet",
-                onClick = { selectedMethod = "E-Wallet" }
-            )
+                "📱",
+                "E-Wallet",
+                selectedMethod == "E-Wallet") {
+                selectedMethod = "E-Wallet"
+            }
 
             PaymentMethod(
-                icon = "🏪",
-                title = "Pay at Counter",
-                selected = selectedMethod == "Counter",
-                onClick = { selectedMethod = "Counter" }
-            )
+                "🏪",
+                "Pay at Counter",
+                selectedMethod == "Counter") {
+                selectedMethod = "Counter"
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
             Spacer(modifier = Modifier.weight(1f))
@@ -132,8 +170,8 @@ fun PaymentMethodScreen(
             Button(
                 onClick = {
                     when (selectedMethod) {
-                        "Card" -> showCardSheet = true
-                        "E-Wallet" -> showTngSheet = true
+                        "Card" -> onCardPay()
+                        "E-Wallet" -> onTngPay()
                         "Counter" -> {}
                     }
                 },
@@ -155,38 +193,10 @@ fun PaymentMethodScreen(
             BottomNavigationBar()
         }
     }
-
-    if (showCardSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showCardSheet = false },
-            containerColor = Color.White
-        ) {
-            CardPaymentFormSheet(
-                onConfirm = {
-                    showCardSheet = false
-                    onSuccess()
-                }
-            )
-        }
-    }
-
-    if (showTngSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showTngSheet = false },
-            containerColor = Color.White
-        ) {
-            TngPaymentFormSheet(
-                onConfirm = {
-                    showTngSheet = false
-                    onSuccess()
-                }
-            )
-        }
-    }
 }
 
 @Composable
-fun CardPaymentFormSheet(onConfirm: () -> Unit) {
+fun CardPaymentFormSheet(onConfirm: (String) -> Unit) {
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
 
@@ -213,7 +223,6 @@ fun CardPaymentFormSheet(onConfirm: () -> Unit) {
 
                 val digits = newValue.text.filter { it.isDigit() }.take(16)
                 val formatted = digits.chunked(4).joinToString(" ")
-
                 val digitsBeforeCursor = newValue.text.take(newValue.selection.start).count { it.isDigit() }
                 val spacesBefore = digitsBeforeCursor / 4
                 val newCursorPos = (digitsBeforeCursor + spacesBefore).coerceAtMost(formatted.length)
@@ -244,9 +253,9 @@ fun CardPaymentFormSheet(onConfirm: () -> Unit) {
                 .clickable {
                     DatePickerDialog(
                         context,
-                        { _, selectedYear, selectedMonth, _ ->
-                            expiryDate = String.format("%02d/%02d", selectedMonth + 1, selectedYear % 100)
-                        },
+                        { _, y, m, _ -> expiryDate = String.format(
+                            Locale.getDefault(), "%02d/%02d", m + 1, y % 100
+                        ) },
                         calendar.get(Calendar.YEAR),
                         calendar.get(Calendar.MONTH),
                         calendar.get(Calendar.DAY_OF_MONTH)
@@ -273,9 +282,10 @@ fun CardPaymentFormSheet(onConfirm: () -> Unit) {
             onClick = {
                 val cleanCardLen = cardField.text.replace(" ", "").length
                 if (cleanCardLen == 16 && cvv.length in 3..4 && expiryDate.isNotBlank()) {
-                    onConfirm()
+                    val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
+                    onConfirm(time)
                 } else {
-                    Toast.makeText(context, "Please enter valid card details", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Invalid card details", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier
@@ -293,13 +303,11 @@ fun CardPaymentFormSheet(onConfirm: () -> Unit) {
 }
 
 @Composable
-fun TngPaymentFormSheet(onConfirm: () -> Unit) {
+fun TngPaymentFormSheet(onConfirm: (String) -> Unit) {
     val context = LocalContext.current
-
     var selectedCountry by remember { mutableStateOf("Malaysia") }
     var countryCode by remember { mutableStateOf("+60") }
     var expanded by remember { mutableStateOf(false) }
-
     var phone by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }
 
@@ -380,7 +388,8 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
                     else -> false
                 }
                 if (validPhone && otp.length == 6) {
-                    onConfirm()
+                    val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
+                    onConfirm(time)
                 } else {
                     Toast.makeText(context, "Invalid Phone or OTP", Toast.LENGTH_SHORT).show()
                 }
@@ -400,50 +409,14 @@ fun TngPaymentFormSheet(onConfirm: () -> Unit) {
     }
 }
 
-@Composable
-fun PaymentMethod(
-    icon: String,
-    title: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(icon, fontSize = 40.sp, modifier = Modifier.width(56.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f)
-            )
-            RadioButton(selected = selected, onClick = { onClick() })
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentSuccessScreen(
-    transactionId: String = "1234-1234-1234",
+    transactionId: String,
+    paymentTime: String,
     onBackClick: () -> Unit = {},
     onHomeClick: () -> Unit = {}
 ) {
-    val transactionIdValue = "TXN-" + (100000..999999).random()
-    val currentTime by remember {
-        mutableStateOf(
-            SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
-        )
-    }
-
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -459,7 +432,7 @@ fun PaymentSuccessScreen(
                 navigationIcon = {
                     IconButton(onClick = { onBackClick() }) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = Color.Black
                         )
@@ -504,12 +477,12 @@ fun PaymentSuccessScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                "Transaction ID: $transactionIdValue",
+                "Transaction ID: $transactionId",
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.Black
             )
 
-            Divider(modifier = Modifier.padding(vertical = 24.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
 
             Text(
                 "Order Confirmed",
@@ -520,7 +493,7 @@ fun PaymentSuccessScreen(
                 textAlign = TextAlign.Center
             )
             Text(
-                "Today at $currentTime",
+                "Today at $paymentTime",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.Normal
                 ),
@@ -547,9 +520,38 @@ fun PaymentSuccessScreen(
                     color = Color.White
                 )
             }
-
             Spacer(modifier = Modifier.height(8.dp))
             BottomNavigationBar()
+        }
+    }
+}
+
+@Composable
+fun PaymentMethod(
+    icon: String,
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable { onClick() },
+        elevation = CardDefaults.cardElevation(4.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(icon, fontSize = 40.sp, modifier = Modifier.width(56.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+            RadioButton(selected = selected, onClick = { onClick() })
         }
     }
 }
