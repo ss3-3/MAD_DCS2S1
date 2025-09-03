@@ -514,9 +514,7 @@ fun PaymentSuccessScreen(
             ) {
                 Text(
                     "Back to Home",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = Color.White
                 )
             }
