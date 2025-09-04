@@ -36,9 +36,10 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentScreen() {
+    var showSuccess by remember { mutableStateOf(false) }
     var showCardSheet by remember { mutableStateOf(false) }
     var showTngSheet by remember { mutableStateOf(false) }
-    var showSuccess by remember { mutableStateOf(false) }
+    var showCounter by remember { mutableStateOf(false) }
     var paymentTime by remember { mutableStateOf("") }
     var transactionId by remember { mutableStateOf("") }
 
@@ -52,8 +53,9 @@ fun PaymentScreen() {
     } else {
         PaymentMethodScreen(
             onBackClick = {},
-            onCardPay = { showCardSheet = true},
-            onTngPay = { showTngSheet = true}
+            onCardPay = { showCardSheet = true },
+            onTngPay = { showTngSheet = true },
+            onCounterPay = { showCounter = true }
         )
     }
 
@@ -88,6 +90,15 @@ fun PaymentScreen() {
             )
         }
     }
+
+    if (showCounter) {
+        val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
+        CounterPaymentScreen(
+            paymentTime = time,
+            onBackClick = { showCounter = false },
+            onHomeClick = { showCounter = false }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +106,8 @@ fun PaymentScreen() {
 fun PaymentMethodScreen(
     onBackClick: () -> Unit = {},
     onCardPay: () -> Unit,
-    onTngPay: () -> Unit
+    onTngPay: () -> Unit,
+    onCounterPay: () -> Unit
 ) {
     var selectedMethod by remember { mutableStateOf("Card") }
 
@@ -172,7 +184,7 @@ fun PaymentMethodScreen(
                     when (selectedMethod) {
                         "Card" -> onCardPay()
                         "E-Wallet" -> onTngPay()
-                        "Counter" -> {}
+                        "Counter" -> onCounterPay()
                     }
                 },
                 modifier = Modifier
@@ -483,6 +495,123 @@ fun PaymentSuccessScreen(
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
+
+            Text(
+                "Order Confirmed",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Normal
+                ),
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                "Today at $paymentTime",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Normal
+                ),
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = { onHomeClick() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .padding(bottom = 32.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    "Back to Home",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            BottomNavigationBar()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CounterPaymentScreen(
+    paymentTime: String,
+    onBackClick: () -> Unit = {},
+    onHomeClick: () -> Unit = {}
+) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Payment Details",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color.Black
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { onBackClick() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.Black
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFFFFC107),
+                    titleContentColor = Color.Black,
+                    navigationIconContentColor = Color.Black
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
+        ) {
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = "Success",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(160.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                "Order Placed",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                "Please proceed to cashier to complete your order.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             Text(
                 "Order Confirmed",
