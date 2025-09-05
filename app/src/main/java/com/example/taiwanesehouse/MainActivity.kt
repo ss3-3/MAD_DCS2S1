@@ -18,7 +18,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TaiwaneseHouseTheme {
-                NavigationApp()
+//                NavigationApp()
+                MenuScreen()
             }
         }
     }
@@ -56,6 +57,7 @@ fun NavigationApp() {
 @Composable
 fun GreetingPreview() {
     TaiwaneseHouseTheme {
-        NavigationApp()
+//        NavigationApp()
+        MenuScreen()
     }
 }
