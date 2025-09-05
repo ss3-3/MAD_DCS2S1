@@ -18,7 +18,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TaiwaneseHouseTheme {
-                NavigationApp()
+//                NavigationApp()
+                MenuScreen()
             }
         }
     }
@@ -44,7 +45,9 @@ fun NavigationApp() {
                 message = "Please enter your details to log in your account."
             )
         }
-        composable(Screen.Menu.name) { Text("Menu Screen") }
+        composable(Screen.Menu.name) {
+            MenuScreen()
+        }
         composable(Screen.Order.name) { Text("Order Screen") }
         composable(Screen.Cart.name) { Text("Cart Screen") }
         composable(Screen.Payment.name) { PaymentScreen() }
@@ -56,6 +59,7 @@ fun NavigationApp() {
 @Composable
 fun GreetingPreview() {
     TaiwaneseHouseTheme {
-        UserProfileScreen(navController = rememberNavController())
+//        NavigationApp()
+        MenuScreen()
     }
 }
