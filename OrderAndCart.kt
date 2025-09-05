@@ -252,7 +252,7 @@ fun foodOrderScreen(
 
                 // image
                 Image(
-                    painter = painterResource(id = R.drawable.screenshot_2025_09_03_152244),
+                    painter = painterResource(id = R.drawable.N1),
                     contentDescription = "N1 Signature Braised Pork QQ Noodle",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
