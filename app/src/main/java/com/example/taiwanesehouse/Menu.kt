@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
@@ -95,7 +95,7 @@ fun NoodlesMenu() {
     LazyColumn {
         items(noodleItems) { item ->
             FoodCard(item = item, onAddClick = {
-                    // TODO: Handle add to cart action
+                // TODO: Handle add to cart action
             })
         }
     }
@@ -164,7 +164,6 @@ fun DrinkMenu() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodCard(item: FoodItem, onAddClick: () -> Unit) {
     Card(
@@ -307,7 +306,7 @@ fun MenuScreen() {
                 navigationIcon = {
                     IconButton(onClick = { onBackClick() }) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = Color.Black,
                             modifier = Modifier.size(32.dp)
@@ -350,7 +349,6 @@ fun MenuScreen() {
                 .padding(innerPadding)
                 .padding(top = 12.dp)
         ) {
-            // Search Bar
             OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
