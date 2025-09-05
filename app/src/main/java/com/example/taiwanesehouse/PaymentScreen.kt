@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
+import androidx.navigation.NavController
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -202,7 +203,7 @@ fun PaymentMethodScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            BottomNavigationBar()
+            BottomNavigationBar(navController = null)
         }
     }
 }
@@ -531,7 +532,7 @@ fun PaymentSuccessScreen(
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            BottomNavigationBar()
+            BottomNavigationBar(navController = null)
         }
     }
 }
@@ -648,7 +649,7 @@ fun CounterPaymentScreen(
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            BottomNavigationBar()
+            BottomNavigationBar(navController = null)
         }
     }
 }
@@ -684,7 +685,7 @@ fun PaymentMethod(
 }
 
 @Composable
-fun BottomNavigationBar() {
+fun BottomNavigationBar(navController: NavController? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -692,15 +693,24 @@ fun BottomNavigationBar() {
             .padding(bottom = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable { navController?.navigate(Screen.Menu.name) }
+        ) {
             Text("📋", fontSize = 28.sp)
             Text("Menu", style = MaterialTheme.typography.bodySmall)
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable { navController?.navigate(Screen.Cart.name) }
+        ) {
             Text("🛒", fontSize = 28.sp)
             Text("Cart", style = MaterialTheme.typography.bodySmall)
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable { navController?.navigate(Screen.Profile.name) }
+        ) {
             Text("👤", fontSize = 28.sp)
             Text("Me", style = MaterialTheme.typography.bodySmall)
         }
