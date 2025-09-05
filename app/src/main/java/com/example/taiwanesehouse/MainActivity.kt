@@ -30,13 +30,14 @@ enum class Screen {
     Menu,
     Order,
     Cart,
-    Payment
+    Payment,
+    Profile
 }
 
 @Composable
 fun NavigationApp() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Screen.Signup.name) {
+    NavHost(navController = navController, startDestination = Screen.Profile.name) {
         composable(Screen.Signup.name) {
             SignUpScreen(
                 navController = navController,
@@ -49,7 +50,8 @@ fun NavigationApp() {
         }
         composable(Screen.Order.name) { Text("Order Screen") }
         composable(Screen.Cart.name) { Text("Cart Screen") }
-        composable(Screen.Payment.name) { Text("Payment Screen") }
+        composable(Screen.Payment.name) { PaymentScreen() }
+        composable(Screen.Profile.name) { UserProfileScreen(navController = navController) }
     }
 }
 
