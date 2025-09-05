@@ -18,8 +18,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TaiwaneseHouseTheme {
-//                NavigationApp()
-                MenuScreen()
+                NavigationApp()
             }
         }
     }
@@ -37,7 +36,7 @@ enum class Screen {
 @Composable
 fun NavigationApp() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Screen.Profile.name) {
+    NavHost(navController = navController, startDestination = Screen.Signup.name) {
         composable(Screen.Signup.name) {
             SignUpScreen(
                 navController = navController,
@@ -45,9 +44,7 @@ fun NavigationApp() {
                 message = "Please enter your details to log in your account."
             )
         }
-        composable(Screen.Menu.name) {
-            MenuScreen()
-        }
+        composable(Screen.Menu.name) { MenuScreen() }
         composable(Screen.Order.name) { Text("Order Screen") }
         composable(Screen.Cart.name) { Text("Cart Screen") }
         composable(Screen.Payment.name) { PaymentScreen() }
@@ -59,7 +56,6 @@ fun NavigationApp() {
 @Composable
 fun GreetingPreview() {
     TaiwaneseHouseTheme {
-//        NavigationApp()
-        MenuScreen()
+        NavigationApp()
     }
 }
