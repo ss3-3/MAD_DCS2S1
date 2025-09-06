@@ -1,7 +1,8 @@
-package com.example.taiwanesehouse;
+package com.example.taiwanesehouse
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -46,7 +47,7 @@ import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
 
 // Data class for food items
 data class FoodItem(
@@ -58,7 +59,7 @@ data class FoodItem(
 )
 
 @Composable
-fun RiceMenu() {
+fun RiceMenu(navController: NavController) {
     // List of rice items
     val riceItems = listOf(
         FoodItem("R1", "Signature Braised Pork Rice", "Japanese Pearl Rice - Signature Braised Pork - Fried Egg - Side Dish (Daily) - Sour Chili", 15.90, R.drawable.signature_braised_pork_rice),
@@ -72,15 +73,13 @@ fun RiceMenu() {
 
     LazyColumn {
         items(riceItems) { item ->
-            FoodCard(item = item, onAddClick = {
-                // TODO: Handle add to cart action
-            })
+            FoodCard(item = item, onAddClick = {}, navController = navController)
         }
     }
 }
 
 @Composable
-fun NoodlesMenu() {
+fun NoodlesMenu(navController: NavController) {
     // list of noodle items
     val noodleItems = listOf(
         FoodItem("N1", "Signature Braised Pork QQ Noodle", "Handmade Noodle - Signature Braised Pork - Fried Egg - Side Dish (Daily) - Sour Chili", 15.90, R.drawable.signature_braised_pork_qq_noodle),
@@ -94,15 +93,13 @@ fun NoodlesMenu() {
 
     LazyColumn {
         items(noodleItems) { item ->
-            FoodCard(item = item, onAddClick = {
-                // TODO: Handle add to cart action
-            })
+            FoodCard(item = item, onAddClick = {}, navController = navController)
         }
     }
 }
 
 @Composable
-fun NotTooFullMenu() {
+fun NotTooFullMenu(navController: NavController) {
     val lightItems = listOf(
         FoodItem("E1", "Yam Floss Egg Crepe", "Yam Paste - Chicken Floss - Egg - Crepe", 8.90, R.drawable.yam_floss_egg_crepe),
         FoodItem("E2", "Cheese Floss Egg Crepe", "Cheese - Chicken Floss - Egg - Crepe - Mayonnaise - Sweet Chili Sauce", 8.90, R.drawable.cheese_floss_egg_crepe),
@@ -114,15 +111,13 @@ fun NotTooFullMenu() {
 
     LazyColumn {
         items(lightItems) { item ->
-            FoodCard(item = item, onAddClick = {
-                // TODO: Handle add to cart action
-            })
+            FoodCard(item = item, onAddClick = {}, navController = navController)
         }
     }
 }
 
 @Composable
-fun SnackMenu() {
+fun SnackMenu(navController: NavController) {
     val snackItems = listOf(
         FoodItem("S1", "Garlic Slice Taiwanese Sausage", "Taiwan Sausage 2 Pcs", 8.90, R.drawable.garlic_slice_taiwanese_sausage),
         FoodItem("S2", "Tempura Oyster Mushroom", "Fried Oyster Mushroom (Spicy / Original)", 9.90, R.drawable.tempura_oyster_mushroom),
@@ -135,15 +130,13 @@ fun SnackMenu() {
 
     LazyColumn {
         items(snackItems) { item ->
-            FoodCard(item = item, onAddClick = {
-                // TODO: Handle add to cart action
-            })
+            FoodCard(item = item, onAddClick = {}, navController = navController)
         }
     }
 }
 
 @Composable
-fun DrinkMenu() {
+fun DrinkMenu(navController: NavController) {
     val drinkItems = listOf(
         FoodItem("D1", "Aloe Yakult Tea", "", 8.90, R.drawable.aloe_yakult_tea),
         FoodItem("D2", "TW Aiyu Jelly", "", 7.90, R.drawable.tw_aiyu_tea),
@@ -157,15 +150,13 @@ fun DrinkMenu() {
 
     LazyColumn {
         items(drinkItems) { item ->
-            FoodCard(item = item, onAddClick = {
-                // TODO: Handle add to cart action
-            })
+            FoodCard(item = item, onAddClick = {}, navController = navController)
         }
     }
 }
 
 @Composable
-fun FoodCard(item: FoodItem, onAddClick: () -> Unit) {
+fun FoodCard(item: FoodItem, onAddClick: () -> Unit, navController: NavController) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -229,14 +220,18 @@ fun FoodCard(item: FoodItem, onAddClick: () -> Unit) {
                     Box(
                         modifier = Modifier
                             .size(32.dp)
-                            .background(Color(0xFFFFC107), CircleShape),
+                            .background(Color(0xFFFFC107), CircleShape)
+                            .clickable {
+                                navController.navigate("order/${item.id}")
+                                onAddClick()
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add",
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp) // 单独调 icon 大小
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -247,11 +242,11 @@ fun FoodCard(item: FoodItem, onAddClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuScreen() {
+fun MenuScreen(navController: NavController) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Rice", "Noodles", "Not Too Full", "Snacks", "Drinks")
     var searchText by remember { mutableStateOf("") }
-    var cartItemCount by remember { mutableIntStateOf(0) }
+    val cartItemCount by remember { mutableIntStateOf(0) }
     val allItems = listOf(
         FoodItem("R1", "Signature Braised Pork Rice", "Japanese Pearl Rice - Signature Braised Pork - Fried Egg - Side Dish (Daily) - Sour Chili", 15.90, R.drawable.signature_braised_pork_rice),
         FoodItem("R2", "High CP Salted Chicken Rice", "Japanese Pearl Rice - Minced Pork - Salted Fried Chicken - Fried Egg - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.signature_braised_pork_rice),
@@ -304,7 +299,7 @@ fun MenuScreen() {
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { onBackClick() }) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -315,7 +310,7 @@ fun MenuScreen() {
                 },
                 actions = {
                     Box {
-                        IconButton(onClick = { /* TODO: Handle cart click */ }) {
+                        IconButton(onClick = { navController.navigate("cart")}) {
                             Icon(
                                 imageVector = Icons.Filled.ShoppingCart,
                                 contentDescription = "Cart",
@@ -340,8 +335,7 @@ fun MenuScreen() {
                 )
             )
         },
-        bottomBar = { BottomNavigationBar() },
-        containerColor = Color.White
+        bottomBar = { BottomNavigationBar(navController = navController) },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -349,6 +343,7 @@ fun MenuScreen() {
                 .padding(innerPadding)
                 .padding(top = 12.dp)
         ) {
+            // Search Bar
             OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
@@ -387,9 +382,7 @@ fun MenuScreen() {
                     edgePadding = 0.dp,
                     containerColor = Color.White,
                     indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = Color(0xFFFFC107)
+                        TabRowDefaults.SecondaryIndicator(modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]), color = Color(0xFFFFC107)
                         )
                     }
                 ) {
@@ -432,11 +425,11 @@ fun MenuScreen() {
 
                 // Content
                 when (selectedTabIndex) {
-                    0 -> RiceMenu()
-                    1 -> NoodlesMenu()
-                    2 -> NotTooFullMenu()
-                    3 -> SnackMenu()
-                    4 -> DrinkMenu()
+                    0 -> RiceMenu(navController)
+                    1 -> NoodlesMenu(navController)
+                    2 -> NotTooFullMenu(navController)
+                    3 -> SnackMenu(navController)
+                    4 -> DrinkMenu(navController)
                 }
             } else {
                 // display search result
@@ -460,48 +453,12 @@ fun MenuScreen() {
 
                 LazyColumn {
                     items(filteredItems) { item ->
-                        FoodCard(item = item, onAddClick = { /* TODO */ })
+                        FoodCard(item = item, onAddClick = { /* TODO */ }, navController = navController)
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
         }
-    }
-}
-
-fun onBackClick() {
-    TODO("Not yet implemented")
-}
-
-@Composable
-fun BottomNavigationBar() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 0.dp, vertical = 8.dp)
-            .padding(bottom = 16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("📋", fontSize = 28.sp)
-            Text("Menu", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("🛒", fontSize = 28.sp)
-            Text("Cart", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("👤", fontSize = 28.sp)
-            Text("Me", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, showSystemUi = true)
-@Composable
-fun SimpleMenuPreview() {
-    MaterialTheme {
-        MenuScreen()
     }
 }

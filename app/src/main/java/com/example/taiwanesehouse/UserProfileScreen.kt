@@ -64,6 +64,8 @@ fun UserProfileScreen(
                     navigationIconContentColor = Color.Black
                 )
             )
+        },
+        bottomBar = { BottomNavigationBar(navController = navController)
         }
     ) { innerPadding ->
         Column(
@@ -102,8 +104,6 @@ fun UserProfileScreen(
             )
             Spacer(modifier = Modifier.weight(1f))
             Spacer(modifier = Modifier.height(8.dp))
-
-            BottomNavigationBar(navController = navController)
         }
     }
 }
