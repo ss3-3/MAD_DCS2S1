@@ -32,6 +32,8 @@ class MainActivity : ComponentActivity() {
 
 enum class Screen {
     Signup,
+    Login,
+    ForgotPassword,
     Menu,
     Cart,
     Profile,
@@ -55,7 +57,7 @@ fun NavigationApp() {
     val memberCoins by rememberSaveable { mutableIntStateOf(150) } // example coin = 150
     var coinsToUse by rememberSaveable { mutableIntStateOf(0) }
 
-    NavHost(navController = navController, startDestination = Screen.Signup.name) {
+    NavHost(navController = navController, startDestination = Screen.Login.name) {
         composable(Screen.Signup.name) {
             SignUpScreen(
                 navController = navController,
@@ -63,6 +65,7 @@ fun NavigationApp() {
                 message = "Please enter your details to log in your account."
             )
         }
+        composable(Screen.Login.name) { LoginScreen(navController = navController) }
         composable(Screen.Menu.name) { MenuScreen(navController) }
         composable(
             route = "order/{foodId}",
