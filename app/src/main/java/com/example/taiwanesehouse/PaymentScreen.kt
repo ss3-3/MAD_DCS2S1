@@ -36,7 +36,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PaymentScreen() {
+fun PaymentScreen(navController: NavController, totalAmount: Double) {
     var showSuccess by remember { mutableStateOf(false) }
     var showCardSheet by remember { mutableStateOf(false) }
     var showTngSheet by remember { mutableStateOf(false) }
@@ -53,10 +53,12 @@ fun PaymentScreen() {
         )
     } else {
         PaymentMethodScreen(
-            onBackClick = {},
+            onBackClick = { navController.popBackStack() },
             onCardPay = { showCardSheet = true },
             onTngPay = { showTngSheet = true },
-            onCounterPay = { showCounter = true }
+            onCounterPay = { showCounter = true },
+            totalAmount = totalAmount,
+            navController = navController
         )
     }
 
@@ -108,7 +110,9 @@ fun PaymentMethodScreen(
     onBackClick: () -> Unit = {},
     onCardPay: () -> Unit,
     onTngPay: () -> Unit,
-    onCounterPay: () -> Unit
+    onCounterPay: () -> Unit,
+    totalAmount: Double,
+    navController: NavController
 ) {
     var selectedMethod by remember { mutableStateOf("Card") }
 
@@ -117,7 +121,7 @@ fun PaymentMethodScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Cart",
+                        "Payment",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         ),
@@ -139,7 +143,8 @@ fun PaymentMethodScreen(
                     navigationIconContentColor = Color.Black
                 )
             )
-        }
+        },
+        bottomBar = { BottomNavigationBar(navController = navController) },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -196,14 +201,13 @@ fun PaymentMethodScreen(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = "Pay RM37.00",
+                    text = "Pay RM %.2f".format(totalAmount),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = Color.White
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            BottomNavigationBar(navController = null)
         }
     }
 }
@@ -212,10 +216,14 @@ fun PaymentMethodScreen(
 fun CardPaymentFormSheet(onConfirm: (String) -> Unit) {
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
-
     var cardField by remember { mutableStateOf(TextFieldValue("")) }
     var expiryDate by remember { mutableStateOf("") }
     var cvv by remember { mutableStateOf("") }
+
+    // check validation
+    var cardError by remember { mutableStateOf("") }
+    var expiryError by remember { mutableStateOf("") }
+    var cvvError by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -244,6 +252,7 @@ fun CardPaymentFormSheet(onConfirm: (String) -> Unit) {
                     text = formatted,
                     selection = TextRange(newCursorPos)
                 )
+                cardError = ""
             },
             label = { Text("Card Number") },
             modifier = Modifier.fillMaxWidth(),
@@ -252,7 +261,13 @@ fun CardPaymentFormSheet(onConfirm: (String) -> Unit) {
             textStyle = androidx.compose.ui.text.TextStyle(
                 fontFamily = FontFamily.Monospace,
                 fontSize = 18.sp
-            )
+            ),
+            isError = cardError.isNotEmpty(),
+            supportingText = {
+                if (cardError.isNotEmpty()) {
+                    Text(text = cardError, color = Color.Red)
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -275,30 +290,61 @@ fun CardPaymentFormSheet(onConfirm: (String) -> Unit) {
                     ).show()
                 },
             enabled = false,
-            singleLine = true
+            singleLine = true,
+            isError = expiryError.isNotEmpty(),
+            supportingText = {
+                if (expiryError.isNotEmpty()) {
+                    Text(text = expiryError, color = Color.Red)
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = cvv,
-            onValueChange = { input -> cvv = input.filter { ch -> ch.isDigit() }.take(4) },
+            onValueChange = { input ->
+                cvv = input.filter { ch -> ch.isDigit() }.take(4)
+                cvvError = ""},
             label = { Text("CVV") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true
+            singleLine = true,
+            isError = cvvError.isNotEmpty(),
+            supportingText = {
+                if (cvvError.isNotEmpty()) {
+                    Text(text = cvvError, color = Color.Red)
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
+                var isValid = true
                 val cleanCardLen = cardField.text.replace(" ", "").length
+
                 if (cleanCardLen == 16 && cvv.length in 3..4 && expiryDate.isNotBlank()) {
+                    cardError = "Card number must be 16 digits"
+                    isValid = false
+                }
+
+                if (expiryDate.isBlank()) {
+                    expiryError = "Please select expiry date"
+                    isValid = false
+                }
+
+                if (cvv.length !in 3..4) {
+                    cvvError = "CVV must be 3-4 digits"
+                    isValid = false
+                }
+
+                if (isValid) {
                     val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
                     onConfirm(time)
                 } else {
-                    Toast.makeText(context, "Invalid card details", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Please check your card details", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier
@@ -323,6 +369,8 @@ fun TngPaymentFormSheet(onConfirm: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var phone by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }
+    var phoneError by remember { mutableStateOf("") }
+    var otpError by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -355,6 +403,7 @@ fun TngPaymentFormSheet(onConfirm: (String) -> Unit) {
                             selectedCountry = "Malaysia"
                             countryCode = "+60"
                             expanded = false
+                            phoneError = ""
                         }
                     )
                     DropdownMenuItem(
@@ -363,6 +412,7 @@ fun TngPaymentFormSheet(onConfirm: (String) -> Unit) {
                             selectedCountry = "Singapore"
                             countryCode = "+65"
                             expanded = false
+                            phoneError = ""
                         }
                     )
                 }
@@ -372,11 +422,20 @@ fun TngPaymentFormSheet(onConfirm: (String) -> Unit) {
 
             OutlinedTextField(
                 value = phone,
-                onValueChange = { phone = it.filter { ch -> ch.isDigit() } },
+                onValueChange = {
+                    phone = it.filter { ch -> ch.isDigit() }
+                    phoneError = ""
+                },
                 label = { Text("Phone Number") },
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true
+                singleLine = true,
+                isError = phoneError.isNotEmpty(),
+                supportingText = {
+                    if (phoneError.isNotEmpty()) {
+                        Text(text = phoneError, color = Color.Red)
+                    }
+                }
             )
         }
 
@@ -384,27 +443,53 @@ fun TngPaymentFormSheet(onConfirm: (String) -> Unit) {
 
         OutlinedTextField(
             value = otp,
-            onValueChange = { otp = it.filter { ch -> ch.isDigit() }.take(6) },
+            onValueChange = {
+                otp = it.filter { ch -> ch.isDigit() }.take(6)
+                otpError = ""
+            },
             label = { Text("Enter OTP") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true
+            singleLine = true,
+            isError = otpError.isNotEmpty(),
+            supportingText = {
+                if (otpError.isNotEmpty()) {
+                    Text(text = otpError, color = Color.Red)
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
+                var isValid = true
+
                 val validPhone = when (countryCode) {
                     "+60" -> phone.length in 9..10
                     "+65" -> phone.length == 8
                     else -> false
                 }
-                if (validPhone && otp.length == 6) {
+
+                if (!validPhone) {
+                    phoneError = when (countryCode) {
+                        "+60" -> "Malaysian phone number must be 9-10 digits"
+                        "+65" -> "Singapore phone number must be 8 digits"
+                        else -> "Invalid phone number format"
+                    }
+                    isValid = false
+                }
+
+                if (otp.length != 6) {
+                    otpError = "OTP must be 6 digits"
+                    isValid = false
+                }
+
+                if (isValid) {
                     val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
                     onConfirm(time)
                 } else {
-                    Toast.makeText(context, "Invalid Phone or OTP", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Please check your details", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier
@@ -532,7 +617,6 @@ fun PaymentSuccessScreen(
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            BottomNavigationBar(navController = null)
         }
     }
 }
@@ -649,7 +733,6 @@ fun CounterPaymentScreen(
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            BottomNavigationBar(navController = null)
         }
     }
 }
@@ -680,39 +763,6 @@ fun PaymentMethod(
                 modifier = Modifier.weight(1f)
             )
             RadioButton(selected = selected, onClick = { onClick() })
-        }
-    }
-}
-
-@Composable
-fun BottomNavigationBar(navController: NavController? = null) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
-            .padding(bottom = 16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { navController?.navigate(Screen.Menu.name) }
-        ) {
-            Text("📋", fontSize = 28.sp)
-            Text("Menu", style = MaterialTheme.typography.bodySmall)
-        }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { navController?.navigate(Screen.Cart.name) }
-        ) {
-            Text("🛒", fontSize = 28.sp)
-            Text("Cart", style = MaterialTheme.typography.bodySmall)
-        }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { navController?.navigate(Screen.Profile.name) }
-        ) {
-            Text("👤", fontSize = 28.sp)
-            Text("Me", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -18,13 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
-
 @Composable
 fun SignUpScreen(
     navController: NavController,
     name: String,
     message: String,
-    modifier: Modifier = Modifier
 ) {
     val logoImage = painterResource(R.drawable.taiwanesehouselogo)
     val coverImage = painterResource(R.drawable.coverpage)
