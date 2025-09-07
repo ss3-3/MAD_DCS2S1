@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "815346542790",
+    "project_id": "taiwanese-house",
+    "storage_bucket": "taiwanese-house.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:815346542790:android:028f6e8ac1b5760f8d0fc7",
+        "android_client_info": {
+          "package_name": "com.example.taiwanesehouse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPGPnSg3aJfolYRif5kCqtVC91pFqxN1I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

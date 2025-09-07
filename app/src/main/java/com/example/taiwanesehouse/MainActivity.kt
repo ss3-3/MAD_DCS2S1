@@ -58,14 +58,9 @@ fun NavigationApp() {
     var coinsToUse by rememberSaveable { mutableIntStateOf(0) }
 
     NavHost(navController = navController, startDestination = Screen.Login.name) {
-        composable(Screen.Signup.name) {
-            SignUpScreen(
-                navController = navController,
-                name = "Taiwanese House",
-                message = "Please enter your details to log in your account."
-            )
-        }
+        composable(Screen.Signup.name) { SignUpScreen(navController = navController) }
         composable(Screen.Login.name) { LoginScreen(navController = navController) }
+        composable(Screen.ForgotPassword.name){ ForgotPasswordScreen(navController = navController) }
         composable(Screen.Menu.name) { MenuScreen(navController) }
         composable(
             route = "order/{foodId}",
