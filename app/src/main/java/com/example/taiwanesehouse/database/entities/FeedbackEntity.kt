@@ -1,6 +1,6 @@
-// Feedback Entity for Room Database
-package com.example.taiwanesehouse.database
+package com.example.taiwanesehouse.database.entities
 
+// Feedback Entity for Room Database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 

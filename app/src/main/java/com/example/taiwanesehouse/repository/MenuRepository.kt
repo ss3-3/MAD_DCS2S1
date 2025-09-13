@@ -3,8 +3,8 @@ package com.example.taiwanesehouse.repository
 
 import android.util.Log
 import com.example.taiwanesehouse.R
-import com.example.taiwanesehouse.database.FoodItemEntity
-import com.example.taiwanesehouse.database.TaiwaneseRestaurantDatabase
+import com.example.taiwanesehouse.database.AppDatabase
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
 import com.example.taiwanesehouse.dataclass.FirebaseFoodItem
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -14,7 +14,7 @@ import javax.inject.Singleton
 
 @Singleton
 class MenuRepository @Inject constructor(
-    private val database: TaiwaneseRestaurantDatabase,
+    private val database: AppDatabase,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
     private val foodItemDao = database.foodItemDao()

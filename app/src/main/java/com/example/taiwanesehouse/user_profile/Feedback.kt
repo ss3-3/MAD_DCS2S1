@@ -498,255 +498,256 @@ fun FeedbackScreen(navController: NavController) {
             }
 
             "form" -> {
-                Column(
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(horizontal = 24.dp)
-                        .verticalScroll(rememberScrollState())
+                        .padding(innerPadding),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)
                 ) {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.White,
-                        shadowElevation = 4.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp)
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            shadowElevation = 4.dp
                         ) {
-                            Text(
-                                text = "We Value Your Feedback",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            Text(
-                                text = "Help us improve by sharing your experience with Taiwanese House",
-                                fontSize = 14.sp,
-                                color = Color.Gray,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-
-                            // Rating section
-                            Text(
-                                text = "Overall Rating *",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.Black,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            Row(
-                                horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp)
-                            ) {
-                                repeat(5) { index ->
-                                    IconButton(
-                                        onClick = { rating = index + 1 },
-                                        modifier = Modifier.size(48.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (index < rating) Icons.Filled.Star else Icons.Outlined.Star,
-                                            contentDescription = "Rate ${index + 1} star${if (index != 0) "s" else ""}",
-                                            tint = if (index < rating) Color(0xFFFFC107) else Color.Gray,
-                                            modifier = Modifier.size(32.dp)
-                                        )
-                                    }
-                                }
-
-                                if (rating > 0) {
-                                    Text(
-                                        text = "($rating/5)",
-                                        fontSize = 14.sp,
-                                        color = Color.Gray,
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    )
-                                }
-                            }
-
-                            // Feedback type selection
-                            Text(
-                                text = "Feedback Category",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.Black,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp)
-                            ) {
-                                items(feedbackTypes.size) { index ->
-                                    val (type, label) = feedbackTypes[index]
-                                    FilterChip(
-                                        onClick = { feedbackType = type },
-                                        label = { Text(label, fontSize = 12.sp) },
-                                        selected = feedbackType == type,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFFFFC107),
-                                            selectedLabelColor = Color.Black
-                                        )
-                                    )
-                                }
-                            }
-
-                            // Feedback title
-                            OutlinedTextField(
-                                value = feedbackTitle,
-                                onValueChange = {
-                                    feedbackTitle = it
-                                    if (errorMessage.isNotEmpty()) {
-                                        errorMessage = ""
-                                    }
-                                },
-                                label = { Text("Feedback Title *") },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                                enabled = !isLoading,
-                                placeholder = { Text("Brief summary of your feedback") }
-                            )
-
-                            // Feedback message
-                            OutlinedTextField(
-                                value = feedbackMessage,
-                                onValueChange = {
-                                    feedbackMessage = it
-                                    if (errorMessage.isNotEmpty()) {
-                                        errorMessage = ""
-                                    }
-                                },
-                                label = { Text("Your Feedback *") },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp),
-                                minLines = 4,
-                                maxLines = 8,
-                                shape = RoundedCornerShape(8.dp),
-                                enabled = !isLoading,
-                                placeholder = { Text("Please share your detailed feedback, suggestions, or concerns...") }
-                            )
-
-                            // Character count
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                horizontalArrangement = Arrangement.End
+                            Column(
+                                modifier = Modifier.padding(24.dp)
                             ) {
                                 Text(
-                                    text = "${feedbackMessage.length}/500",
-                                    fontSize = 12.sp,
-                                    color = if (feedbackMessage.length > 500) Color.Red else Color.Gray
+                                    text = "We Value Your Feedback",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    modifier = Modifier.padding(bottom = 8.dp)
                                 )
-                            }
 
-                            // Contact email (optional for non-authenticated users)
-                            if (currentUser == null) {
+                                Text(
+                                    text = "Help us improve by sharing your experience with Taiwanese House",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray,
+                                    modifier = Modifier.padding(bottom = 24.dp)
+                                )
+
+                                // Rating section
+                                Text(
+                                    text = "Overall Rating *",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Black,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                Row(
+                                    horizontalArrangement = Arrangement.Start,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp)
+                                ) {
+                                    repeat(5) { index ->
+                                        IconButton(
+                                            onClick = { rating = index + 1 },
+                                            modifier = Modifier.size(48.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (index < rating) Icons.Filled.Star else Icons.Outlined.Star,
+                                                contentDescription = "Rate ${index + 1} star${if (index != 0) "s" else ""}",
+                                                tint = if (index < rating) Color(0xFFFFC107) else Color.Gray,
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                        }
+                                    }
+
+                                    if (rating > 0) {
+                                        Text(
+                                            text = "($rating/5)",
+                                            fontSize = 14.sp,
+                                            color = Color.Gray,
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        )
+                                    }
+                                }
+
+                                // Feedback type selection
+                                Text(
+                                    text = "Feedback Category",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Black,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp)
+                                ) {
+                                    items(feedbackTypes.size) { index ->
+                                        val (type, label) = feedbackTypes[index]
+                                        FilterChip(
+                                            onClick = { feedbackType = type },
+                                            label = { Text(label, fontSize = 12.sp) },
+                                            selected = feedbackType == type,
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = Color(0xFFFFC107),
+                                                selectedLabelColor = Color.Black
+                                            )
+                                        )
+                                    }
+                                }
+
+                                // Feedback title
                                 OutlinedTextField(
-                                    value = contactEmail,
-                                    onValueChange = { contactEmail = it },
-                                    label = { Text("Contact Email (Optional)") },
+                                    value = feedbackTitle,
+                                    onValueChange = {
+                                        feedbackTitle = it
+                                        if (errorMessage.isNotEmpty()) {
+                                            errorMessage = ""
+                                        }
+                                    },
+                                    label = { Text("Feedback Title *") },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(bottom = 16.dp),
                                     singleLine = true,
                                     shape = RoundedCornerShape(8.dp),
                                     enabled = !isLoading,
-                                    placeholder = { Text("your.email@example.com") }
+                                    placeholder = { Text("Brief summary of your feedback") }
                                 )
-                            }
 
-                            // Error message
-                            if (errorMessage.isNotEmpty()) {
-                                Text(
-                                    text = errorMessage,
-                                    color = Color.Red,
-                                    fontSize = 12.sp,
+                                // Feedback message
+                                OutlinedTextField(
+                                    value = feedbackMessage,
+                                    onValueChange = {
+                                        feedbackMessage = it
+                                        if (errorMessage.isNotEmpty()) {
+                                            errorMessage = ""
+                                        }
+                                    },
+                                    label = { Text("Your Feedback *") },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(bottom = 16.dp)
+                                        .padding(bottom = 8.dp),
+                                    minLines = 4,
+                                    maxLines = 8,
+                                    shape = RoundedCornerShape(8.dp),
+                                    enabled = !isLoading,
+                                    placeholder = { Text("Please share your detailed feedback, suggestions, or concerns...") }
                                 )
-                            }
 
-                            // Submit button
-                            Button(
-                                onClick = { submitFeedback() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFFC107),
-                                    contentColor = Color.Black
-                                ),
-                                enabled = !isLoading &&
-                                        rating > 0 &&
-                                        feedbackTitle.isNotEmpty() &&
-                                        feedbackMessage.isNotEmpty() &&
-                                        feedbackMessage.length <= 500 &&
-                                        isOnline
-                            ) {
-                                if (isLoading) {
-                                    CircularProgressIndicator(
-                                        color = Color.Black,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                } else {
+                                // Character count
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
                                     Text(
-                                        text = if (isOnline) "Submit Feedback" else "No Internet Connection",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
+                                        text = "${feedbackMessage.length}/500",
+                                        fontSize = 12.sp,
+                                        color = if (feedbackMessage.length > 500) Color.Red else Color.Gray
                                     )
                                 }
-                            }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                                // Contact email (optional for non-authenticated users)
+                                if (currentUser == null) {
+                                    OutlinedTextField(
+                                        value = contactEmail,
+                                        onValueChange = { contactEmail = it },
+                                        label = { Text("Contact Email (Optional)") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(8.dp),
+                                        enabled = !isLoading,
+                                        placeholder = { Text("your.email@example.com") }
+                                    )
+                                }
 
-                            // Cancel button
-                            OutlinedButton(
-                                onClick = { currentScreen = "main" },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.Gray
-                                ),
-                                enabled = !isLoading
-                            ) {
-                                Text(
-                                    text = "Cancel",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                // Error message
+                                if (errorMessage.isNotEmpty()) {
+                                    Text(
+                                        text = errorMessage,
+                                        color = Color.Red,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp)
+                                    )
+                                }
+
+                                // Submit button
+                                Button(
+                                    onClick = { submitFeedback() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFC107),
+                                        contentColor = Color.Black
+                                    ),
+                                    enabled = !isLoading &&
+                                            rating > 0 &&
+                                            feedbackTitle.isNotEmpty() &&
+                                            feedbackMessage.isNotEmpty() &&
+                                            feedbackMessage.length <= 500 &&
+                                            isOnline
+                                ) {
+                                    if (isLoading) {
+                                        CircularProgressIndicator(
+                                            color = Color.Black,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = if (isOnline) "Submit Feedback" else "No Internet Connection",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Cancel button
+                                OutlinedButton(
+                                    onClick = { currentScreen = "main" },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color.Gray
+                                    ),
+                                    enabled = !isLoading
+                                ) {
+                                    Text(
+                                        text = "Cancel",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    item {
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                    // Privacy note
-                    Text(
-                        text = "Your feedback helps us improve our service. We respect your privacy and will only use this information to enhance your experience at Taiwanese House.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
+                        // Privacy note
+                        Text(
+                            text = "Your feedback helps us improve our service. We respect your privacy and will only use this information to enhance your experience at Taiwanese House.",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
                 }
             }
         }

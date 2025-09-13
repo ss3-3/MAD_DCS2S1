@@ -1,6 +1,7 @@
 package com.example.taiwanesehouse.user_profile
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -46,11 +47,11 @@ fun EditNameScreen(navController: NavController) {
     var confirmationDialogState by remember {
         mutableStateOf(
             ConfirmationDialogState(
-            type = ConfirmationType.UPDATE_USERNAME,
-            title = "Update Username",
-            message = "Are you sure you want to update?",
-            isVisible = false
-        )
+                type = ConfirmationType.UPDATE_USERNAME,
+                title = "Update Username",
+                message = "Are you sure you want to update?",
+                isVisible = false
+            )
         )
     }
     var successDialogVisible by remember { mutableStateOf(false) }
@@ -221,188 +222,194 @@ fun EditNameScreen(navController: NavController) {
                 }
             }
         } else {
-            // Main content
-            Column(
+            // Main content - Using LazyColumn for scrollable content
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(32.dp))
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
 
-                // Main card
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 4.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                item {
+                    // Main card
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        shadowElevation = 4.dp,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Update Your Name",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Update Your Name",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
 
-                        Text(
-                            text = "Enter your new display name below",
-                            fontSize = 14.sp,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 24.dp)
-                        )
+                            Text(
+                                text = "Enter your new display name below",
+                                fontSize = 14.sp,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(bottom = 24.dp)
+                            )
 
-                        // Current name display
-                        if (currentName.isNotEmpty()) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF5F5F5)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
+                            // Current name display
+                            if (currentName.isNotEmpty()) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFF5F5F5)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text(
-                                        text = "Current Name",
-                                        fontSize = 12.sp,
-                                        color = Color.Gray,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = currentName,
-                                        fontSize = 16.sp,
-                                        color = Color.Black,
-                                        fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        Text(
+                                            text = "Current Name",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = currentName,
+                                            fontSize = 16.sp,
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        // New name input
-                        OutlinedTextField(
-                            value = newName,
-                            onValueChange = {
-                                newName = it
-                                // Clear error when user starts typing
-                                if (errorMessage.isNotEmpty()) {
-                                    errorMessage = ""
-                                }
-                            },
-                            label = { Text("New Name") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp),
-                            enabled = !isLoading,
-                            isError = errorMessage.isNotEmpty(),
-                            placeholder = { Text("Enter your new name") }
-                        )
-
-                        // Character count
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Text(
-                                text = "${newName.length}/50",
-                                fontSize = 12.sp,
-                                color = if (newName.length > 50) Color.Red else Color.Gray
+                            // New name input
+                            OutlinedTextField(
+                                value = newName,
+                                onValueChange = {
+                                    newName = it
+                                    // Clear error when user starts typing
+                                    if (errorMessage.isNotEmpty()) {
+                                        errorMessage = ""
+                                    }
+                                },
+                                label = { Text("New Name") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                                enabled = !isLoading,
+                                isError = errorMessage.isNotEmpty(),
+                                placeholder = { Text("Enter your new name") }
                             )
-                        }
 
-                        // Error message
-                        if (errorMessage.isNotEmpty()) {
-                            Text(
-                                text = errorMessage,
-                                color = Color.Red,
-                                fontSize = 12.sp,
+                            // Character count
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                textAlign = TextAlign.Start
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Update button - now shows confirmation dialog instead of directly updating
-                        Button(
-                            onClick = {
-                                // Show confirmation dialog instead of directly updating
-                                confirmationDialogState = confirmationDialogState.copy(
-                                    isVisible = true,
-                                    onConfirm = { updateName() }
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFFFC107),
-                                contentColor = Color.Black
-                            ),
-                            enabled = !isLoading && newName.trim() != currentName && newName.trim().isNotEmpty()
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    color = Color.Black,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            } else {
+                                    .padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.End
+                            ) {
                                 Text(
-                                    text = "Update Name",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = "${newName.length}/50",
+                                    fontSize = 12.sp,
+                                    color = if (newName.length > 50) Color.Red else Color.Gray
                                 )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                            // Error message
+                            if (errorMessage.isNotEmpty()) {
+                                Text(
+                                    text = errorMessage,
+                                    color = Color.Red,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    textAlign = TextAlign.Start
+                                )
+                            }
 
-                        // Cancel button
-                        OutlinedButton(
-                            onClick = { navController.popBackStack() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color.Gray
-                            ),
-                            enabled = !isLoading
-                        ) {
-                            Text(
-                                text = "Cancel",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Update button - now shows confirmation dialog instead of directly updating
+                            Button(
+                                onClick = {
+                                    // Show confirmation dialog instead of directly updating
+                                    confirmationDialogState = confirmationDialogState.copy(
+                                        isVisible = true,
+                                        onConfirm = { updateName() }
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFFFC107),
+                                    contentColor = Color.Black
+                                ),
+                                enabled = !isLoading && newName.trim() != currentName && newName.trim().isNotEmpty()
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        color = Color.Black,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Update Name",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Cancel button
+                            OutlinedButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color.Gray
+                                ),
+                                enabled = !isLoading
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                // Help text
-                Text(
-                    text = "Your name will be updated across all parts of the app",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                    // Help text
+                    Text(
+                        text = "Your name will be updated across all parts of the app",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
             }
         }
     }

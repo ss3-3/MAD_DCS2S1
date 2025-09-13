@@ -1,9 +1,11 @@
 package com.example.taiwanesehouse
 
+import com.example.taiwanesehouse.dataclass.CartItem
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Query  // Add this missing import
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +47,20 @@ class FirebaseCartManager {
             }
     }
 
-    // Updated setupCartListener to include document ID
+    // Safe method to get string list from Firestore document
+    private fun DocumentSnapshot.getStringList(field: String): List<String> {
+        return try {
+            val rawList = this.get(field)
+            when (rawList) {
+                is List<*> -> rawList.mapNotNull { it as? String }
+                else -> emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    // Updated setupCartListener with safe casting
     private fun setupCartListener(userId: String) {
         cartListener = firestore.collection("users")
             .document(userId)
@@ -59,12 +74,12 @@ class FirebaseCartManager {
                 val items = snapshot?.documents?.mapNotNull { doc ->
                     try {
                         CartItem(
-                            documentId = doc.id, // Include the document ID
+                            documentId = doc.id,
                             foodName = doc.getString("foodName") ?: "",
                             basePrice = doc.getDouble("basePrice") ?: 0.0,
                             foodQuantity = doc.getLong("foodQuantity")?.toInt() ?: 1,
-                            foodAddOns = doc.get("foodAddOns") as? List<String> ?: emptyList(),
-                            foodRemovals = doc.get("foodRemovals") as? List<String> ?: emptyList(),
+                            foodAddOns = doc.getStringList("foodAddOns"),
+                            foodRemovals = doc.getStringList("foodRemovals"),
                             imagesRes = doc.getLong("imagesRes")?.toInt() ?: 0,
                             addedAt = doc.getTimestamp("addedAt")?.toDate()?.time,
                             foodId = doc.getString("foodId")
@@ -78,10 +93,35 @@ class FirebaseCartManager {
             }
     }
 
-    // Add the missing addToCart function
+    // Initialize user document with cart structure if needed
+    suspend fun initializeUserCartStructure(): Boolean {
+        return try {
+            val user = auth.currentUser ?: return false
+
+            val userDoc = firestore.collection("users").document(user.uid)
+            val userSnapshot = userDoc.get().await()
+
+            if (!userSnapshot.exists()) {
+                // Create user document with initial structure
+                val userData = hashMapOf(
+                    "memberCoins" to 0,
+                    "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                )
+                userDoc.set(userData).await()
+            }
+
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     suspend fun addToCart(cartItem: CartItem): Boolean {
         return try {
             val user = auth.currentUser ?: return false
+
+            // Initialize user structure if needed
+            initializeUserCartStructure()
 
             // Create a unique document ID for this cart item
             val cartRef = firestore.collection("users")
@@ -93,8 +133,8 @@ class FirebaseCartManager {
                 "foodName" to cartItem.foodName,
                 "basePrice" to cartItem.basePrice,
                 "foodQuantity" to cartItem.foodQuantity,
-                "foodAddOns" to cartItem.foodAddOns,
-                "foodRemovals" to cartItem.foodRemovals,
+                "foodAddOns" to cartItem.foodAddOns, // Already a List<String>
+                "foodRemovals" to cartItem.foodRemovals, // Already a List<String>
                 "imagesRes" to cartItem.imagesRes,
                 "foodId" to cartItem.foodId,
                 "addedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
@@ -107,7 +147,6 @@ class FirebaseCartManager {
         }
     }
 
-    // Better update method using document ID
     suspend fun updateCartItemQuantityById(documentId: String, newQuantity: Int): Boolean {
         return try {
             val user = auth.currentUser ?: return false
@@ -127,7 +166,6 @@ class FirebaseCartManager {
         }
     }
 
-    // Better remove method using document ID
     suspend fun removeFromCartById(documentId: String): Boolean {
         return try {
             val user = auth.currentUser ?: return false
@@ -145,7 +183,7 @@ class FirebaseCartManager {
         }
     }
 
-    // Keep the index-based methods for backward compatibility if needed
+    // Keep the index-based methods for backward compatibility
     suspend fun updateCartItemQuantity(index: Int, newQuantity: Int): Boolean {
         val currentItems = _cartItems.value
         return if (index < currentItems.size) {

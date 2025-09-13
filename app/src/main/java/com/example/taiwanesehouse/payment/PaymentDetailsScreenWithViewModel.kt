@@ -31,12 +31,36 @@ fun PaymentDetailsScreenWithViewModel(
 ) {
     val paymentState by viewModel.paymentState.collectAsState()
 
+    // Add logging to debug the payment state
+    LaunchedEffect(paymentState) {
+        android.util.Log.d("PaymentDebug", "Payment method: ${paymentState.paymentMethod}, Amount: ${paymentState.totalAmount}")
+    }
+
+    // Handle null payment method case BEFORE using it in the UI
+    if (paymentState.paymentMethod == null) {
+        // Show loading or error state instead of crashing
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = Color(0xFFFFC107))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Loading payment details...")
+            }
+        }
+        return // Exit early if payment method is null
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        when (paymentState.paymentMethod) {
+                        // FIX: Remove TODO() and handle null case above
+                        when (paymentState.paymentMethod!!) { // Safe to use !! here because we checked above
                             PaymentMethod.CARD -> "Card Details"
                             PaymentMethod.EWALLET -> "E-Wallet Details"
                             PaymentMethod.COUNTER -> "Counter Payment"
@@ -70,26 +94,22 @@ fun PaymentDetailsScreenWithViewModel(
             contentPadding = PaddingValues(16.dp)
         ) {
             item {
-                when (paymentState.paymentMethod) {
+                // This is also safe now because we handled null above
+                when (paymentState.paymentMethod!!) {
                     PaymentMethod.CARD -> {
                         CardPaymentFormWithViewModel(
                             viewModel = viewModel,
                             totalAmount = paymentState.totalAmount,
                             onPaymentSubmit = {
-                                // Process payment and handle navigation
                                 viewModel.processPayment { success ->
                                     if (success) {
-                                        // Navigate to success screen - make sure route matches exactly
                                         navController.navigate(Payment.PaymentSuccess.name) {
-                                            // Optional: Remove the payment screen from back stack
                                             popUpTo("${Screen.Payment.name}/{paymentMethod}/{totalAmount}") {
                                                 inclusive = true
                                             }
                                         }
                                     } else {
-                                        // Navigate to error screen - make sure route matches exactly
                                         navController.navigate(Payment.PaymentError.name) {
-                                            // Optional: Remove the payment screen from back stack
                                             popUpTo("${Screen.Payment.name}/{paymentMethod}/{totalAmount}") {
                                                 inclusive = true
                                             }
@@ -105,20 +125,15 @@ fun PaymentDetailsScreenWithViewModel(
                             viewModel = viewModel,
                             totalAmount = paymentState.totalAmount,
                             onPaymentSubmit = {
-                                // Process payment and handle navigation
                                 viewModel.processPayment { success ->
                                     if (success) {
-                                        // Navigate to success screen - make sure route matches exactly
                                         navController.navigate(Payment.PaymentSuccess.name) {
-                                            // Optional: Remove the payment screen from back stack
                                             popUpTo("${Screen.Payment.name}/{paymentMethod}/{totalAmount}") {
                                                 inclusive = true
                                             }
                                         }
                                     } else {
-                                        // Navigate to error screen - make sure route matches exactly
                                         navController.navigate(Payment.PaymentError.name) {
-                                            // Optional: Remove the payment screen from back stack
                                             popUpTo("${Screen.Payment.name}/{paymentMethod}/{totalAmount}") {
                                                 inclusive = true
                                             }
@@ -130,7 +145,6 @@ fun PaymentDetailsScreenWithViewModel(
                         )
                     }
                     PaymentMethod.COUNTER -> {
-                        // Counter payment - simple implementation
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -155,7 +169,6 @@ fun PaymentDetailsScreenWithViewModel(
 
                             Button(
                                 onClick = {
-                                    // For counter payment, assume success and navigate
                                     PaymentDataManager.setPaymentResult(
                                         PaymentResult(
                                             success = true,
@@ -182,6 +195,105 @@ fun PaymentDetailsScreenWithViewModel(
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ALTERNATIVE APPROACH - More robust null handling:
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PaymentDetailsScreenWithViewModelSafe(
+    viewModel: PaymentViewModel,
+    navController: NavController,
+    onBackClick: () -> Unit
+) {
+    val paymentState by viewModel.paymentState.collectAsState()
+
+    // Safe title handling
+    val screenTitle = when (paymentState.paymentMethod) {
+        PaymentMethod.CARD -> "Card Details"
+        PaymentMethod.EWALLET -> "E-Wallet Details"
+        PaymentMethod.COUNTER -> "Counter Payment"
+        null -> "Payment Details" // Safe fallback
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        screenTitle,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color.Black
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.Black
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFFFFC107)
+                )
+            )
+        },
+        bottomBar = { BottomNavigationBar(navController = navController) }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp)
+        ) {
+            item {
+                // Safe content handling
+                when (paymentState.paymentMethod) {
+                    PaymentMethod.CARD -> {
+                        // Your card payment form
+                    }
+                    PaymentMethod.EWALLET -> {
+                        // Your ewallet payment form
+                    }
+                    PaymentMethod.COUNTER -> {
+                        // Your counter payment form
+                    }
+                    null -> {
+                        // Show error or loading state
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFFFFC107))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "Loading payment method...",
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Button(
+                                onClick = onBackClick,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFFFC107)
+                                )
+                            ) {
+                                Text("Go Back", color = Color.White)
                             }
                         }
                     }

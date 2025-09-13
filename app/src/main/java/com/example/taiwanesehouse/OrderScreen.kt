@@ -19,10 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -30,10 +26,9 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -57,7 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.taiwanesehouse.database.FoodItemEntity
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
+import com.example.taiwanesehouse.dataclass.CartItem
 import com.example.taiwanesehouse.enumclass.Screen
 import com.example.taiwanesehouse.viewmodel.FoodItemViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -143,7 +139,7 @@ fun OrderScreenWithDatabase(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Order",
+                            text = "🍽️ Order",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp
@@ -153,21 +149,25 @@ fun OrderScreenWithDatabase(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.Black
+                    TextButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Text(
+                            text = "⬅️",
+                            fontSize = 20.sp
                         )
                     }
                 },
                 actions = {
                     Box {
-                        IconButton(onClick = { navController.navigate(Screen.Cart.name) }) {
-                            Icon(
-                                Icons.Default.ShoppingCart,
-                                contentDescription = "Order cart",
-                                tint = Color.Black
+                        TextButton(
+                            onClick = { navController.navigate(Screen.Cart.name) },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Text(
+                                text = "🛒",
+                                fontSize = 20.sp
                             )
                         }
                         // Cart item count badge
@@ -243,7 +243,7 @@ fun OrderScreenWithDatabase(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // MINUS button
+                        // MINUS button with emoji
                         Box(
                             modifier = Modifier
                                 .size(35.dp)
@@ -254,9 +254,8 @@ fun OrderScreenWithDatabase(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "-",
+                                text = "➖",
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                         }
@@ -280,7 +279,7 @@ fun OrderScreenWithDatabase(
                             )
                         }
 
-                        // PLUS button
+                        // PLUS button with emoji
                         Box(
                             modifier = Modifier
                                 .size(35.dp)
@@ -290,11 +289,10 @@ fun OrderScreenWithDatabase(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Increase",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                            Text(
+                                text = "➕",
+                                fontSize = 16.sp,
+                                color = Color.White
                             )
                         }
                     }
@@ -325,7 +323,7 @@ fun OrderScreenWithDatabase(
                     Column {
                         // ADD ON section
                         Text(
-                            text = "Add-On",
+                            text = "➕ Add-On",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -344,14 +342,14 @@ fun OrderScreenWithDatabase(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Egg x1",
+                                text = "🥚 Egg x1",
                                 fontSize = 16.sp,
                                 color = Color.White,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "RM 1.00",
+                                    text = "💰 RM 1.00",
                                     fontSize = 16.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold
@@ -379,14 +377,14 @@ fun OrderScreenWithDatabase(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Vegetable",
+                                text = "🥬 Vegetable",
                                 fontSize = 16.sp,
                                 color = Color.White,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "RM 2.00",
+                                    text = "💰 RM 2.00",
                                     fontSize = 16.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold
@@ -415,7 +413,7 @@ fun OrderScreenWithDatabase(
 
                         // REMOVE section
                         Text(
-                            text = "Remove",
+                            text = "➖ Remove",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -433,7 +431,7 @@ fun OrderScreenWithDatabase(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Spring Onion",
+                                text = "🧅 Spring Onion",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White
@@ -459,7 +457,7 @@ fun OrderScreenWithDatabase(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Vegetable",
+                                text = "🥬 Vegetable",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White
@@ -487,7 +485,7 @@ fun OrderScreenWithDatabase(
                 ) {
                     // Price
                     Text(
-                        text = "RM %.2f".format(totalPrice),
+                        text = "💰 RM %.2f".format(totalPrice),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
@@ -533,10 +531,10 @@ fun OrderScreenWithDatabase(
                                         removeSpringOnion = false
                                         removeVegetable = false
 
-                                        Toast.makeText(context, "Added to cart!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Added to cart! 🛒", Toast.LENGTH_SHORT).show()
                                         navController.navigate(Screen.Cart.name)
                                     } else {
-                                        Toast.makeText(context, "Failed to add to cart", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Failed to add to cart ❌", Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Error adding to cart: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -562,7 +560,7 @@ fun OrderScreenWithDatabase(
                             )
                         } else {
                             Text(
-                                text = "Add to Cart",
+                                text = "🛒 Add to Cart",
                                 color = Color.White,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Medium
@@ -582,7 +580,7 @@ fun OrderScreenWithDatabase(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Food item not found",
+                    text = "❌ Food item not found",
                     fontSize = 18.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
@@ -602,7 +600,7 @@ fun OrderScreenWithDatabase(
                     )
                 ) {
                     Text(
-                        text = "Go Back",
+                        text = "⬅️ Go Back",
                         color = Color.White
                     )
                 }

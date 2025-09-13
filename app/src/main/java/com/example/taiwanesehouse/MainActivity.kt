@@ -1,4 +1,4 @@
-// Fixed MainActivity with proper AndroidViewModel usage
+// MainActivity with proper AndroidViewModel usage
 package com.example.taiwanesehouse
 
 import android.os.Bundle
@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.taiwanesehouse.database.DatabaseInitializer
+import com.example.taiwanesehouse.dataclass.PaymentResult
 import com.example.taiwanesehouse.enumclass.*
 import com.example.taiwanesehouse.manager.PaymentDataManager
 import com.example.taiwanesehouse.payment.*
@@ -66,7 +67,7 @@ fun NavigationApp() {
             )
         }
 
-        composable(Screen.Cart.name) { CartScreenWithDatabase(navController) }
+        composable(Screen.Cart.name) { CartScreen(navController) }
 
         composable(Screen.Payment.name) { Payment(navController = navController) }
 
@@ -100,48 +101,29 @@ fun NavigationApp() {
         }
 
         composable(Payment.PaymentSuccess.name) {
-            // Get payment result from PaymentDataManager instead of ViewModel
-            val paymentResult = PaymentDataManager.getPaymentResult()
-
-            if (paymentResult != null && paymentResult.success) {
-                PaymentSuccessScreen(
-                    paymentResult = paymentResult,
-                    onBackToMenu = {
-                        // Clear the data when going back to menu
-                        PaymentDataManager.clear()
-                        navController.navigate(Screen.Menu.name) {
-                            popUpTo(Screen.Menu.name) { inclusive = true }
-                        }
-                    },
-                    navController = navController
-                )
-            } else {
-                // Fallback if no payment result - go back to menu
-                LaunchedEffect(Unit) {
+            PaymentSuccessScreen(
+                paymentResult = PaymentDataManager.getPaymentResult() ?: PaymentResult(success = true),
+                onBackToMenu = {
                     PaymentDataManager.clear()
                     navController.navigate(Screen.Menu.name) {
-                        popUpTo(Screen.Menu.name) { inclusive = true }
+                        popUpTo(Payment.PaymentSuccess.name) { inclusive = true }
                     }
-                }
-            }
+                },
+                navController = navController
+            )
         }
 
         composable(Payment.PaymentError.name) {
-            // Get error message from PaymentDataManager instead of ViewModel
-            val errorMessage = PaymentDataManager.getErrorMessage()
-
             PaymentErrorScreen(
-                errorMessage = errorMessage.ifEmpty { "Payment failed. Please try again." },
+                errorMessage = PaymentDataManager.getErrorMessage() ?: "Payment processing failed. Please try again.",
                 onRetry = {
-                    // Clear the error and go back to payment screen
-                    PaymentDataManager.clear()
+                    // Go back to payment details
                     navController.popBackStack()
                 },
                 onBackToCart = {
-                    // Clear the data and go to cart
                     PaymentDataManager.clear()
                     navController.navigate(Screen.Cart.name) {
-                        popUpTo(Screen.Cart.name) { inclusive = true }
+                        popUpTo(Payment.PaymentError.name) { inclusive = true }
                     }
                 },
                 navController = navController

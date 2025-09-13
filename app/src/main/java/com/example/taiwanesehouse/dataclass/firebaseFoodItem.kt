@@ -1,6 +1,6 @@
 package com.example.taiwanesehouse.dataclass
 
-import com.example.taiwanesehouse.database.FoodItemEntity
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
 
 // 2. Firebase Data Model
 data class FirebaseFoodItem(

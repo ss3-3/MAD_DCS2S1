@@ -1,4 +1,4 @@
-// 4. Updated Database Initializer (now simpler)
+// 4. Updated Database Initializer
 package com.example.taiwanesehouse.database
 
 import android.content.Context
@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 object DatabaseInitializer {
 
     fun initializeDatabase(context: Context) {
-        val database = TaiwaneseRestaurantDatabase.getDatabase(context)
+        val database = AppDatabase.getDatabase(context)
         val repository = MenuRepository(database)
 
         CoroutineScope(Dispatchers.IO).launch {

@@ -1,7 +1,7 @@
+package com.example.taiwanesehouse.database.dao
 // DAO (Data Access Object)
-package com.example.taiwanesehouse.database
-
 import androidx.room.*
+import com.example.taiwanesehouse.database.entities.FeedbackEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

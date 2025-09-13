@@ -14,86 +14,100 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.taiwanesehouse.BottomNavigationBar
+import com.example.taiwanesehouse.database.AppDatabase
+import com.example.taiwanesehouse.database.entities.PaymentEntity
 import com.example.taiwanesehouse.enumclass.PaymentMethod
 import com.example.taiwanesehouse.enumclass.PaymentStatus
+import com.example.taiwanesehouse.repository.PaymentRepository
+import com.example.taiwanesehouse.viewmodel.PaymentHistoryViewModel
+import com.example.taiwanesehouse.viewmodel.PaymentHistoryViewModelFactory
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
-
-// Data class for payment history
-data class PaymentHistoryItem(
-    val id: String,
-    val orderId: String,
-    val amount: Double,
-    val paymentMethod: PaymentMethod,
-    val status: PaymentStatus,
-    val timestamp: Date,
-    val items: List<String>,
-    val transactionId: String? = null
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentHistoryScreen(navController: NavController) {
-    // Mock payment history data
-    val paymentHistory = remember {
-        listOf(
-            PaymentHistoryItem(
-                id = "1",
-                orderId = "ORD001",
-                amount = 45.90,
-                paymentMethod = PaymentMethod.CARD,
-                status = PaymentStatus.COMPLETED,
-                timestamp = Date(System.currentTimeMillis() - 86400000), // 1 day ago
-                items = listOf("Beef Noodles", "Milk Tea", "Spring Rolls"),
-                transactionId = "TXN123456"
-            ),
-            PaymentHistoryItem(
-                id = "2",
-                orderId = "ORD002",
-                amount = 28.50,
-                paymentMethod = PaymentMethod.EWALLET,
-                status = PaymentStatus.COMPLETED,
-                timestamp = Date(System.currentTimeMillis() - 172800000), // 2 days ago
-                items = listOf("Pork Bun", "Taiwanese Tea"),
-                transactionId = "TXN789012"
-            ),
-            PaymentHistoryItem(
-                id = "3",
-                orderId = "ORD003",
-                amount = 67.20,
-                paymentMethod = PaymentMethod.CARD,
-                status = PaymentStatus.FAILED,
-                timestamp = Date(System.currentTimeMillis() - 259200000), // 3 days ago
-                items = listOf("Hot Pot Set", "Bubble Tea", "Dumplings"),
-                transactionId = null
-            ),
-            PaymentHistoryItem(
-                id = "4",
-                orderId = "ORD004",
-                amount = 32.80,
-                paymentMethod = PaymentMethod.COUNTER,
-                status = PaymentStatus.COMPLETED,
-                timestamp = Date(System.currentTimeMillis() - 345600000), // 4 days ago
-                items = listOf("Chicken Rice", "Soup", "Iced Tea"),
-                transactionId = "COUNTER001"
-            ),
-            PaymentHistoryItem(
-                id = "5",
-                orderId = "ORD005",
-                amount = 55.40,
-                paymentMethod = PaymentMethod.EWALLET,
-                status = PaymentStatus.PENDING,
-                timestamp = Date(System.currentTimeMillis() - 3600000), // 1 hour ago
-                items = listOf("Taiwanese Beef Stew", "Pearl Milk Tea", "Egg Roll"),
-                transactionId = "TXN345678"
-            )
-        ).sortedByDescending { it.timestamp }
+    val context = LocalContext.current
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    // If user is not logged in, show login required message
+    if (currentUser == null) {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Payment History",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = Color.Black
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.Black
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color(0xFFFFC107)
+                    )
+                )
+            },
+            bottomBar = { BottomNavigationBar(navController = navController) }
+        ) { padding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "🔒",
+                        style = MaterialTheme.typography.headlineLarge
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Login Required",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.Gray
+                    )
+                    Text(
+                        "Please login to view your payment history",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        return
     }
+
+    // Create ViewModel with repository
+    val database = AppDatabase.getDatabase(context)
+    val paymentRepository = PaymentRepository(database.paymentDao())
+    val viewModel: PaymentHistoryViewModel = viewModel(
+        factory = PaymentHistoryViewModelFactory(paymentRepository, currentUser.uid)
+    )
+
+    val state by viewModel.state.collectAsState()
 
     Scaffold(
         topBar = {
@@ -123,48 +137,106 @@ fun PaymentHistoryScreen(navController: NavController) {
         },
         bottomBar = { BottomNavigationBar(navController = navController) }
     ) { padding ->
-        if (paymentHistory.isEmpty()) {
-            // Empty state
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+        when {
+            state.isLoading -> {
+                // Loading state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "🧾",
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.size(80.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "No Payment History",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.Gray
-                    )
-                    Text(
-                        "Your payment history will appear here",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFFFFC107))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Loading payment history...")
+                    }
                 }
             }
-        } else {
-            // Payment history list
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(paymentHistory) { payment ->
-                    PaymentHistoryCard(payment = payment)
+            state.error != null -> {
+                // Error state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "❌",
+                            style = MaterialTheme.typography.headlineLarge
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Error Loading History",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.Red
+                        )
+                        Text(
+                            state.error!!,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { viewModel.retry() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFFFC107)
+                            )
+                        ) {
+                            Text("Retry", color = Color.White)
+                        }
+                    }
+                }
+            }
+            state.payments.isEmpty() -> {
+                // Empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "🧾",
+                            style = MaterialTheme.typography.headlineLarge
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No Payment History",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.Gray
+                        )
+                        Text(
+                            "Your payment history will appear here",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            else -> {
+                // Payment history list
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(state.payments) { payment ->
+                        PaymentHistoryCard(payment = payment)
+                    }
                 }
             }
         }
@@ -172,7 +244,7 @@ fun PaymentHistoryScreen(navController: NavController) {
 }
 
 @Composable
-fun PaymentHistoryCard(payment: PaymentHistoryItem) {
+fun PaymentHistoryCard(payment: PaymentEntity) {
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
     Card(
@@ -225,33 +297,34 @@ fun PaymentHistoryCard(payment: PaymentHistoryItem) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Items ordered - Using LazyRow for horizontal scrolling
-            Text(
-                text = "Items:",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(payment.items) { item ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFF5F5F5))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "🍽️ $item",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
+            if (payment.items.isNotEmpty()) {
+                Text(
+                    text = "Items:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(payment.items) { item ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFF5F5F5))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "🍽️ $item",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             // Transaction ID (if available)
             payment.transactionId?.let { txnId ->
@@ -266,6 +339,24 @@ fun PaymentHistoryCard(payment: PaymentHistoryItem) {
                         text = "Transaction: $txnId",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // Error message (if failed)
+            payment.errorMessage?.let { error ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "⚠️ ",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Red
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))

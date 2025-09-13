@@ -1,6 +1,6 @@
-// 1. Entity (Database Table)
-package com.example.taiwanesehouse.database
+package com.example.taiwanesehouse.database.entities
 
+// 1. Entity (Database Table)
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 

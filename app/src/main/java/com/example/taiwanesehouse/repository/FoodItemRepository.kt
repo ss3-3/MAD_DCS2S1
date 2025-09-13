@@ -1,8 +1,8 @@
 // 4. Repository
 package com.example.taiwanesehouse.repository
 
-import com.example.taiwanesehouse.database.FoodItemDao
-import com.example.taiwanesehouse.database.FoodItemEntity
+import com.example.taiwanesehouse.database.dao.FoodItemDao
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
 import kotlinx.coroutines.flow.Flow
 
 class FoodItemRepository(private val foodItemDao: FoodItemDao) {

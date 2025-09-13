@@ -5,14 +5,25 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import android.content.Context
+import com.example.taiwanesehouse.database.dao.FeedbackDao
+import com.example.taiwanesehouse.database.dao.FoodItemDao
+import com.example.taiwanesehouse.database.dao.PaymentDao
+import com.example.taiwanesehouse.database.entities.UserEntity
+import com.example.taiwanesehouse.database.dao.UserDao
+import com.example.taiwanesehouse.database.entities.FeedbackEntity
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
+import com.example.taiwanesehouse.database.entities.PaymentEntity
 
 @Database(
-    entities = [FeedbackEntity::class],
-    version = 1,
+    entities = [UserEntity::class, FeedbackEntity::class, FoodItemEntity::class, PaymentEntity::class],
+    version = 3, // Increment version for migration
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun userDao(): UserDao
     abstract fun feedbackDao(): FeedbackDao
+    abstract fun foodItemDao(): FoodItemDao
+    abstract fun paymentDao(): PaymentDao
 
     companion object {
         @Volatile
@@ -24,7 +35,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "taiwanese_house_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

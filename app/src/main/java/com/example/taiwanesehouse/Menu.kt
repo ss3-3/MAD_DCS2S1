@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.taiwanesehouse.database.FoodItemEntity
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
 import com.example.taiwanesehouse.viewmodel.FoodItemViewModel
 
 @Composable

@@ -1,8 +1,8 @@
 //Repository for Data Management
 package com.example.taiwanesehouse.repository
 
-import com.example.taiwanesehouse.database.FeedbackDao
-import com.example.taiwanesehouse.database.FeedbackEntity
+import com.example.taiwanesehouse.database.dao.FeedbackDao
+import com.example.taiwanesehouse.database.entities.FeedbackEntity
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await

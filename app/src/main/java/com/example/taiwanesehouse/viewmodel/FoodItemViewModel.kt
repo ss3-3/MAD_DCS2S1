@@ -4,8 +4,8 @@ package com.example.taiwanesehouse.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.taiwanesehouse.database.FoodItemEntity
-import com.example.taiwanesehouse.database.TaiwaneseRestaurantDatabase
+import com.example.taiwanesehouse.database.AppDatabase
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
 import com.example.taiwanesehouse.repository.MenuRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -15,7 +15,7 @@ class FoodItemViewModel(application: Application) : AndroidViewModel(application
     private val repository: MenuRepository
 
     init {
-        val database = TaiwaneseRestaurantDatabase.getDatabase(application)
+        val database = AppDatabase.getDatabase(application)
         repository = MenuRepository(database)
 
         // Initialize data when ViewModel is created

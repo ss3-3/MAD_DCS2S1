@@ -1,69 +1,35 @@
 package com.example.taiwanesehouse
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.taiwanesehouse.database.FoodItemEntity
+import androidx.navigation.NavController
+import com.example.taiwanesehouse.dataclass.CartItem
 import com.example.taiwanesehouse.enumclass.Screen
+import com.example.taiwanesehouse.manager.PaymentDataManager
 import com.example.taiwanesehouse.viewmodel.FoodItemViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CartScreenWithDatabase(
+fun CartScreen(
     navController: NavController,
     foodItemViewModel: FoodItemViewModel = viewModel(),
     cartManager: FirebaseCartManager = remember { FirebaseCartManager() }
@@ -95,395 +61,161 @@ fun CartScreenWithDatabase(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // Top App bar
-        CenterAlignedTopAppBar(
-            title = {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
+    // Debug logging
+    LaunchedEffect(cartItems) {
+        Log.d("CartScreen", "Cart items count: ${cartItems.size}")
+        cartItems.forEachIndexed { index, item ->
+            Log.d("CartScreen", "Item $index: ${item.foodName} - ${item.getTotalPrice()}")
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
                     Text(
-                        text = "Cart",
+                        text = "🛒 My Cart",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         ),
                         color = Color.Black
                     )
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(
-                        Icons.AutoMirrored.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.Black
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFFFC107))
-        )
-
-        // Content
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            // Order summary header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFFFFC107)
+                )
+            )
+        },
+        bottomBar = { BottomNavigationBar(navController = navController) }
+    ) { padding ->
+        if (cartItems.isEmpty()) {
+            // Empty cart state
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Order Summary",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-                Text(
-                    text = "Total: %d product(s)".format(cartItems.sumOf { it.foodQuantity }),
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (cartItems.isEmpty()) {
-                // EMPTY CART content
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(40.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        Icons.Default.ShoppingCart,
-                        contentDescription = "Empty Cart",
-                        modifier = Modifier.size(80.dp),
-                        tint = Color.Gray.copy(alpha = 0.5f)
+                    Text(
+                        text = "🛒",
+                        style = MaterialTheme.typography.headlineLarge.copy(fontSize = 64.sp)
                     )
-
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Text(
                         text = "Your cart is empty",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.Gray
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Text(
                         text = "Add some delicious items to get started!",
-                        fontSize = 14.sp,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
                     )
-
                     Spacer(modifier = Modifier.height(24.dp))
-
                     Button(
                         onClick = { navController.navigate(Screen.Menu.name) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFFC107)
+                        )
                     ) {
                         Text(
-                            text = "Browse Menu",
+                            text = "🍽️ Browse Menu",
                             color = Color.White,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
-            } else {
-                // CART ITEMS
-                cartItems.forEachIndexed { index, item ->
-                    CartItemDisplayWithDatabase(
-                        item = item,
-                        foodItemViewModel = foodItemViewModel,
+            }
+        } else {
+            // Cart with items
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(cartItems) { item ->
+                    CartItemCard(
+                        cartItem = item,
+                        onQuantityChange = { newQuantity ->
+                            scope.launch {
+                                if (newQuantity > 0) {
+                                    val success = cartManager.updateCartItemQuantityById(
+                                        item.documentId,
+                                        newQuantity
+                                    )
+                                    if (!success) {
+                                        Toast.makeText(context, "Failed to update quantity", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    val success = cartManager.removeFromCartById(item.documentId)
+                                    if (!success) {
+                                        Toast.makeText(context, "Failed to remove item", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        },
                         onRemove = {
                             scope.launch {
-                                isLoading = true
-                                val success = cartManager.removeFromCart(index)
-                                isLoading = false
-                                if (!success) {
+                                val success = cartManager.removeFromCartById(item.documentId)
+                                if (success) {
+                                    Toast.makeText(context, "${item.foodName} removed from cart", Toast.LENGTH_SHORT).show()
+                                } else {
                                     Toast.makeText(context, "Failed to remove item", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                        },
-                        onQuantityChange = { newQuantity ->
-                            scope.launch {
-                                isLoading = true
-                                val success = cartManager.updateCartItemQuantity(index, newQuantity)
-                                isLoading = false
-                                if (!success) {
-                                    Toast.makeText(context, "Failed to update quantity", Toast.LENGTH_SHORT).show()
-                                }
-                            }
                         }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // ADD MORE ITEMS button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Color.Gray.copy(alpha = 0.1f),
-                            RoundedCornerShape(8.dp)
-                        )
-                        .clickable { navController.navigate(Screen.Menu.name) }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Add",
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Text(
-                        text = "Add more items",
-                        fontSize = 16.sp,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // MEMBER COINS section
-                if (subtotal > 0) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Color(0xFFFDD835).copy(alpha = 0.2f),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .padding(16.dp)
-                    ) {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Member Coins",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
-                                )
-                                Text(
-                                    text = "Available: %d coins".format(memberCoins),
-                                    fontSize = 14.sp,
-                                    color = Color.Gray
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = "Use coins (1 coin = RM 0.01 discount)",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // COIN USAGE controls
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    // MINUS coin button
-                                    IconButton(
-                                        onClick = {
-                                            if (coinsToUse > 0) {
-                                                cartManager.updateCoinsToUse(coinsToUse - 1)
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(Color(0xFFFDD835), CircleShape)
-                                    ) {
-                                        Text(
-                                            text = "-",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                    }
-
-                                    // COINS TO USE display
-                                    Box(
-                                        modifier = Modifier
-                                            .background(
-                                                Color.White,
-                                                RoundedCornerShape(20.dp)
-                                            )
-                                            .padding(horizontal = 14.dp, vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = coinsToUse.toString(),
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = Color.Black,
-                                            modifier = Modifier.width(44.dp),
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-
-                                    // PLUS coin button
-                                    IconButton(
-                                        onClick = {
-                                            if (coinsToUse < maxCoinsUsable) {
-                                                cartManager.updateCoinsToUse(coinsToUse + 1)
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(Color(0xFFFDD835), CircleShape)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Add,
-                                            contentDescription = "Add coin",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-
-                                // USE MAX button
-                                Button(
-                                    onClick = { cartManager.updateCoinsToUse(maxCoinsUsable) },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFFFDD835)
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = "Use Max",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            if (coinsToUse > 0) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Discount: -RM %.2f".format(coinDiscount),
-                                    fontSize = 14.sp,
-                                    color = Color.Black,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
+                // Coin usage section
+                item {
+                    CoinUsageCard(
+                        memberCoins = memberCoins,
+                        coinsToUse = coinsToUse,
+                        maxCoinsUsable = maxCoinsUsable,
+                        onCoinsChange = { cartManager.updateCoinsToUse(it) }
+                    )
                 }
 
-                if (subtotal > 0) {
-                    Spacer(modifier = Modifier.height(24.dp))
+                // Summary section
+                item {
+                    CartSummaryCard(
+                        subtotal = subtotal,
+                        coinDiscount = coinDiscount,
+                        finalTotal = finalTotal
+                    )
+                }
 
-                    // PRICE BREAKDOWN
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Color.Gray.copy(alpha = 0.1f),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Subtotal:",
-                                fontSize = 16.sp,
-                                color = Color.Black
-                            )
-                            Text(
-                                text = "RM %.2f".format(subtotal),
-                                fontSize = 16.sp,
-                                color = Color.Black
-                            )
-                        }
+                // Checkout button
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                        if (coinsToUse > 0) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Coin Discount (%d coins):".format(coinsToUse),
-                                    fontSize = 16.sp,
-                                    color = Color.Black
-                                )
-                                Text(
-                                    text = "-RM %.2f".format(coinDiscount),
-                                    fontSize = 16.sp,
-                                    color = Color.Red
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider(thickness = 1.dp, color = Color.Gray)
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Total:",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                            Text(
-                                text = "RM %.2f".format(finalTotal),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // CHECKOUT button
                     Button(
                         onClick = {
-                            navController.navigate(Screen.Payment.name)
+                            if (cartItems.isNotEmpty()) {
+                                isLoading = true
+
+                                // Store cart data in PaymentDataManager
+                                PaymentDataManager.setCartData(
+                                    cartItems = cartItems,
+                                    subtotal = subtotal,
+                                    coinDiscount = coinDiscount,
+                                    finalTotal = finalTotal,
+                                    coinsUsed = coinsToUse
+                                )
+
+                                // Navigate to payment method selection
+                                navController.navigate(Screen.Payment.name)
+                                isLoading = false
+                            }
                         },
-                        enabled = !isLoading,
+                        enabled = !isLoading && cartItems.isNotEmpty() && finalTotal > 0,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -499,194 +231,250 @@ fun CartScreenWithDatabase(
                             )
                         } else {
                             Text(
-                                text = "Proceed to Checkout",
+                                text = "💳 Proceed to Checkout - RM %.2f".format(finalTotal),
                                 color = Color.White,
-                                fontSize = 20.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                // Add some bottom padding
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-fun CartItemDisplayWithDatabase(
-    item: CartItem,
-    foodItemViewModel: FoodItemViewModel,
-    onRemove: () -> Unit,
-    onQuantityChange: (Int) -> Unit
+fun CartItemCard(
+    cartItem: CartItem,
+    onQuantityChange: (Int) -> Unit,
+    onRemove: () -> Unit
 ) {
-    var foodItem by remember { mutableStateOf<FoodItemEntity?>(null) }
-
-    // Try to get food item details from database
-    LaunchedEffect(item.foodName) {
-        try {
-            // Since we don't have the original ID, we'll need to search by name
-            // This is a limitation - ideally CartItem should store the food ID
-            foodItem = foodItemViewModel.getFoodItemByName(item.foodName)
-        } catch (e: Exception) {
-            // Handle error - food item not found in database
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Color.Gray.copy(alpha = 0.1f),
-                RoundedCornerShape(12.dp)
-            )
-            .padding(16.dp)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
         ) {
-            // Food Image
-            Box(
+            // Food image
+            Image(
+                painter = painterResource(id = cartItem.imagesRes),
+                contentDescription = cartItem.foodName,
                 modifier = Modifier
                     .size(80.dp)
-                    .background(
-                        Color.Gray.copy(alpha = 0.1f),
-                        RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (item.imagesRes != 0) {
-                    Image(
-                        painter = painterResource(id = item.imagesRes),
-                        contentDescription = item.foodName,
-                        modifier = Modifier
-                            .size(80.dp),
-//                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // Fallback if no image
-                    Icon(
-                        Icons.Default.ShoppingCart,
-                        contentDescription = item.foodName,
-                        modifier = Modifier.size(40.dp),
-                        tint = Color.Gray
-                    )
-                }
-            }
+                    .padding(end = 12.dp)
+            )
 
-            // Item Details
+            // Item details
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = item.foodName,
-                    fontSize = 16.sp,
+                    text = cartItem.foodName,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "Base: RM %.2f".format(item.basePrice),
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-
-                if (item.foodAddOns.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                if (cartItem.foodAddOns.isNotEmpty()) {
                     Text(
-                        text = "Add-ons: ${item.foodAddOns.joinToString(", ")}",
-                        fontSize = 12.sp,
-                        color = Color.Blue
+                        text = "➕ Add: ${cartItem.foodAddOns.joinToString(", ")}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF4CAF50),
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
 
-                if (item.foodRemovals.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                if (cartItem.foodRemovals.isNotEmpty()) {
                     Text(
-                        text = "Remove: ${item.foodRemovals.joinToString(", ")}",
-                        fontSize = 12.sp,
-                        color = Color.Red
+                        text = "➖ Remove: ${cartItem.foodRemovals.joinToString(", ")}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFFF5722),
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Quantity Controls
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(Color(0xFFFDD835), CircleShape)
-                            .clickable {
-                                if (item.foodQuantity > 1) {
-                                    onQuantityChange(item.foodQuantity - 1)
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "-",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-
                     Text(
-                        text = item.foodQuantity.toString(),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.Black,
-                        modifier = Modifier.width(24.dp),
-                        textAlign = TextAlign.Center
+                        text = "💰 RM %.2f".format(cartItem.getTotalPrice()),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFFC107)
                     )
 
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(Color(0xFFFDD835), CircleShape)
-                            .clickable {
-                                onQuantityChange(item.foodQuantity + 1)
-                            },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Decrease quantity button with emoji
+                        TextButton(
+                            onClick = { onQuantityChange(cartItem.foodQuantity - 1) },
+                            modifier = Modifier.size(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = "➖",
+                                fontSize = 16.sp,
+                                color = Color(0xFFFFC107)
+                            )
+                        }
+
                         Text(
-                            text = "+",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            text = "${cartItem.foodQuantity}",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(horizontal = 12.dp)
                         )
+
+                        // Increase quantity button with emoji
+                        TextButton(
+                            onClick = { onQuantityChange(cartItem.foodQuantity + 1) },
+                            modifier = Modifier.size(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = "➕",
+                                fontSize = 16.sp,
+                                color = Color(0xFFFFC107)
+                            )
+                        }
+
+                        // Remove item button with emoji
+                        TextButton(
+                            onClick = onRemove,
+                            modifier = Modifier.size(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = "🗑️",
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
 
-            // Price and Remove
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
-                Text(
-                    text = "RM %.2f".format(item.getTotalPrice()),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
+@Composable
+fun CoinUsageCard(
+    memberCoins: Int,
+    coinsToUse: Int,
+    maxCoinsUsable: Int,
+    onCoinsChange: (Int) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "🪙 Member Coins",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
 
+            Text(
+                text = "Available: $memberCoins coins | Using: $coinsToUse coins",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
+
+            if (maxCoinsUsable > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
 
+                Slider(
+                    value = coinsToUse.toFloat(),
+                    onValueChange = { onCoinsChange(it.toInt()) },
+                    valueRange = 0f..maxCoinsUsable.toFloat(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFFFC107),
+                        activeTrackColor = Color(0xFFFFC107)
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CartSummaryCard(
+    subtotal: Double,
+    coinDiscount: Double,
+    finalTotal: Double
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "📋 Order Summary",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Subtotal:")
+                Text("RM %.2f".format(subtotal))
+            }
+
+            if (coinDiscount > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("🪙 Coin Discount:")
+                    Text("-RM %.2f".format(coinDiscount), color = Color.Red)
+                }
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = 1.dp,
+                color = Color.Gray
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(
-                    text = "Remove",
-                    fontSize = 12.sp,
-                    color = Color.Red,
-                    modifier = Modifier.clickable { onRemove() },
-                    textDecoration = TextDecoration.Underline
+                    "💰 Total:",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "RM %.2f".format(finalTotal),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFFC107)
                 )
             }
         }
