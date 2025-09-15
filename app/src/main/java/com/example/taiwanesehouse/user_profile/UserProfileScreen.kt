@@ -95,6 +95,22 @@ fun UserProfileScreen(
 
             item {
                 ProfileOptionItem(
+                    icon = Icons.Default.Info,
+                    title = "Verify Email",
+                    onClick = { navController.navigate("VerifyEmail") }
+                )
+            }
+
+            item {
+                ProfileOptionItem(
+                    icon = Icons.Default.Edit,
+                    title = "Change Email Address",
+                    onClick = { navController.navigate("ChangeEmail") }
+                )
+            }
+
+            item {
+                ProfileOptionItem(
                     icon = Icons.AutoMirrored.Default.List,
                     title = "Payment History",
                     onClick = {navController.navigate(UserProfile.PaymentHistory.name)}

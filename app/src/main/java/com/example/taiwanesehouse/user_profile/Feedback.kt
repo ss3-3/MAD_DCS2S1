@@ -141,18 +141,16 @@ fun FeedbackScreen(navController: NavController) {
         }
     }
 
-    // Check network and sync on screen load
+    // Check network and sync on screen load (treat as online by default; only mark offline on real failures)
     LaunchedEffect(currentUser?.uid) {
         if (currentUser != null) {
+            isOnline = true
             try {
-                // Try to sync with Firebase
                 checkRateLimit()
                 loadUserFeedbackHistory()
-                isOnline = true
             } catch (e: Exception) {
-                // Offline mode
                 isOnline = false
-                canSubmitFeedback = false
+                // still allow viewing cached history (if any)
             }
         }
     }
@@ -164,13 +162,10 @@ fun FeedbackScreen(navController: NavController) {
                 isLoading = true
                 errorMessage = ""
 
-                if (!isOnline) {
-                    errorMessage = "Internet connection required to submit feedback"
-                    return@launch
-                }
-
                 // Re-check rate limit before submission
-                checkRateLimit()
+                if (isOnline) {
+                    checkRateLimit()
+                }
                 if (!canSubmitFeedback) {
                     errorMessage = "You've reached the weekly feedback limit. Please try again next week."
                     return@launch
@@ -213,10 +208,29 @@ fun FeedbackScreen(navController: NavController) {
                     "appVersion" to "1.0.0"
                 )
 
-                // Submit to Firestore
-                firestore.collection("feedback")
-                    .add(feedbackData)
-                    .await()
+                if (isOnline) {
+                    // Submit to Firestore and cache
+                    firestore.collection("feedback").add(feedbackData).await()
+                } else {
+                    // Enqueue locally
+                    val entity = com.example.taiwanesehouse.database.entities.FeedbackEntity(
+                        id = "local_${System.currentTimeMillis()}",
+                        userId = feedbackData["userId"] as String,
+                        userName = feedbackData["userName"] as? String ?: "",
+                        rating = feedbackData["rating"] as Int,
+                        feedbackType = feedbackData["feedbackType"] as? String ?: "",
+                        title = feedbackData["title"] as? String ?: "",
+                        message = feedbackData["message"] as? String ?: "",
+                        timestamp = feedbackData["timestamp"] as Long,
+                        status = feedbackData["status"] as? String ?: "pending",
+                        isSynced = false
+                    )
+                    val repo = com.example.taiwanesehouse.repository.FeedbackRepository(
+                        com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).feedbackDao(),
+                        firestore
+                    )
+                    repo.enqueueFeedbackLocal(entity)
+                }
 
                 // Reset form
                 rating = 0
@@ -229,12 +243,16 @@ fun FeedbackScreen(navController: NavController) {
                 checkRateLimit()
                 loadUserFeedbackHistory()
 
-                snackbarHostState.showSnackbar("Feedback submitted successfully!")
-                currentScreen = "history"
+                if (isOnline) {
+                    snackbarHostState.showSnackbar("Feedback submitted successfully!")
+                    currentScreen = "history"
+                } else {
+                    snackbarHostState.showSnackbar("No internet. Saved locally and will sync later.")
+                    currentScreen = "main"
+                }
 
             } catch (e: Exception) {
                 errorMessage = "Failed to submit feedback: ${e.localizedMessage ?: "Unknown error"}"
-                isOnline = false // Network might be down
             } finally {
                 isLoading = false
             }

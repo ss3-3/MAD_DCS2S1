@@ -46,9 +46,9 @@ fun CartScreen(
 
     // Calculate totals
     val subtotal = cartItems.sumOf { it.getTotalPrice() }
-    val coinDiscount = coinsToUse * 0.10
-    val finalTotal = (subtotal - coinDiscount).coerceAtLeast(0.0)
-    val maxCoinsUsable = minOf(memberCoins, kotlin.math.floor(subtotal * 10).toInt())
+    val coinDiscount = 0.0
+    val finalTotal = subtotal
+    val maxCoinsUsable = 0
 
     // Check authentication
     LaunchedEffect(Unit) {
@@ -172,21 +172,11 @@ fun CartScreen(
                     )
                 }
 
-                // Coin usage section
-                item {
-                    CoinUsageCard(
-                        memberCoins = memberCoins,
-                        coinsToUse = coinsToUse,
-                        maxCoinsUsable = maxCoinsUsable,
-                        onCoinsChange = { cartManager.updateCoinsToUse(it) }
-                    )
-                }
-
                 // Summary section
                 item {
                     CartSummaryCard(
                         subtotal = subtotal,
-                        coinDiscount = coinDiscount,
+                        coinDiscount = 0.0,
                         finalTotal = finalTotal
                     )
                 }
@@ -200,15 +190,17 @@ fun CartScreen(
                             if (cartItems.isNotEmpty()) {
                                 isLoading = true
 
-                                // Store cart data for checkout
-                                com.example.taiwanesehouse.cart.CartDataManager.setCartData(
-                                    cartItems = cartItems,
-                                    subtotal = subtotal,
-                                    coinDiscount = coinDiscount,
-                                    finalTotal = finalTotal,
-                                    coinsUsed = coinsToUse
+                                // Move items to OrderDataManager (locked) and clear Firebase cart
+                                com.example.taiwanesehouse.order.OrderDataManager.appendItems(
+                                    newItems = cartItems,
+                                    coinsUsedNow = coinsToUse
                                 )
-                                // Navigate to order method selection
+                                // Reset coin usage slider back to 0 after transfer
+                                scope.launch { cartManager.updateCoinsToUse(0) }
+                                // Clear live cart after transfer
+                                scope.launch { cartManager.clearCart() }
+
+                                // Navigate to order details screen
                                 navController.navigate(Screen.Order.name)
                                 isLoading = false
                             }

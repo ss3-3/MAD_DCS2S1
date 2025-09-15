@@ -14,11 +14,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.taiwanesehouse.database.DatabaseInitializer
-import com.example.taiwanesehouse.dataclass.PaymentResult
 import com.example.taiwanesehouse.enumclass.*
-import com.example.taiwanesehouse.manager.PaymentDataManager
 import com.example.taiwanesehouse.payment.*
 import com.example.taiwanesehouse.order.OrderCheckoutScreen
+import com.example.taiwanesehouse.order.OrderScreenWithDatabase
 import com.example.taiwanesehouse.ui.theme.TaiwaneseHouseTheme
 import com.example.taiwanesehouse.user_profile.*
 import com.example.taiwanesehouse.viewmodel.*
@@ -74,23 +73,6 @@ fun NavigationApp() {
 
         composable(Screen.Payment.name) { Payment(navController = navController) }
 
-        composable(Payment.PaymentError.name) {
-            PaymentErrorScreen(
-                errorMessage = PaymentDataManager.getErrorMessage() ?: "Payment processing failed. Please try again.",
-                onRetry = {
-                    // Go back to payment details
-                    navController.popBackStack()
-                },
-                onBackToCart = {
-                    PaymentDataManager.clear()
-                    navController.navigate(Screen.Cart.name) {
-                        popUpTo(Payment.PaymentError.name) { inclusive = true }
-                    }
-                },
-                navController = navController
-            )
-        }
-
         composable(Screen.Profile.name) { UserProfileScreen(navController = navController) }
 
         composable(UserProfile.EditName.name) { EditNameScreen(navController = navController) }
@@ -102,5 +84,8 @@ fun NavigationApp() {
         composable(UserProfile.Feedback.name) { FeedbackScreen(navController = navController) }
 
         composable(UserProfile.Logout.name) { LogoutScreen(navController = navController) }
+
+        composable("VerifyEmail") { VerifyEmailScreen(navController = navController) }
+        composable("ChangeEmail") { ChangeEmailScreen(navController = navController) }
     }
 }

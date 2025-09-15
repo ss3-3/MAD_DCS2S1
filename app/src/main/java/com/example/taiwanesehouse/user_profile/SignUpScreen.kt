@@ -87,14 +87,11 @@ fun SignUpScreen(
     // Form validation
     fun validateForm(): Boolean {
         return when {
-            fullName.isBlank() -> {
-                // Error will be shown in the UI state
-                false
-            }
+            fullName.isBlank() || fullName.length < 2 -> false
             email.isBlank() -> false
             !isEmailValid -> false
             phoneNumber.isNotEmpty() && !isPhoneValid -> false
-            password.length < 6 -> false
+            !isPasswordValid -> false
             password != confirmPassword -> false
             selectedQuestion.isBlank() -> false
             securityAnswer.isBlank() -> false

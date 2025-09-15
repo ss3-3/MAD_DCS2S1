@@ -180,7 +180,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * Password validation
      */
     fun validatePassword(password: String): Boolean {
-        val isValid = password.length >= 6
+        // Strong password: min 8 chars, at least 1 upper, 1 lower, 1 digit
+        val regex = Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}")
+        val isValid = regex.matches(password)
         updateValidationState(isPasswordValid = isValid)
         return isValid
     }

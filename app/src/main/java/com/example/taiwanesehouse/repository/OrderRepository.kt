@@ -6,6 +6,7 @@ import com.example.taiwanesehouse.database.dao.UserDao
 import com.example.taiwanesehouse.database.entities.OrderEntity
 import com.example.taiwanesehouse.database.entities.OrderItemEntity
 import com.example.taiwanesehouse.database.entities.UserEntity
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 
 @Singleton
 class OrderRepository @Inject constructor(
-    private val orderDao: OrderDao
+    private val orderDao: OrderDao,
+    private val userDao: com.example.taiwanesehouse.database.dao.UserDao
 ) {
     private val firestore = FirebaseFirestore.getInstance()
     private val ordersCollection = firestore.collection("orders")
@@ -219,17 +221,21 @@ class OrderRepository @Inject constructor(
                     orderItems = orderItems,
                     totalAmount = (data["totalAmount"] as? Number)?.toDouble() ?: 0.0,
                     orderStatus = data["orderStatus"] as? String ?: "pending",
-                    orderDate = (data["orderDate"] as? com.google.firebase.Timestamp)?.toDate()
+                    orderDate = (data["orderDate"] as? Timestamp)?.toDate()
                         ?: Date(),
                     estimatedDeliveryTime = data["estimatedDeliveryTime"] as? String,
                     deliveryAddress = data["deliveryAddress"] as? String,
                     notes = data["notes"] as? String,
                     paymentStatus = data["paymentStatus"] as? String ?: "pending",
                     paymentMethod = data["paymentMethod"] as? String,
-                    createdAt = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate()
+                    createdAt = (data["createdAt"] as? Timestamp)?.toDate()
                         ?: Date(),
-                    updatedAt = (data["updatedAt"] as? com.google.firebase.Timestamp)?.toDate()
-                        ?: Date()
+                    updatedAt = (data["updatedAt"] as? Timestamp)?.toDate()
+                        ?: Date(),
+                    subtotalAmount = TODO(),
+                    coinDiscount = TODO(),
+                    coinsUsed = TODO(),
+                    coinsEarned = TODO()
                 )
             } else {
                 null
@@ -289,7 +295,7 @@ class OrderRepository @Inject constructor(
                 }
 
                 // Deduct coins first
-                val userRepository = UserRepository()
+                val userRepository = UserRepository(userDao)
                 val coinDeductionResult =
                     userRepository.deductCoinsFromUser(currentUser.uid, coinsUsed)
                 if (coinDeductionResult.isFailure) {
@@ -311,7 +317,7 @@ class OrderRepository @Inject constructor(
                 if (coinsUsed > 0) {
                     val currentUser = FirebaseAuth.getInstance().currentUser
                     currentUser?.let { user ->
-                        val userRepository = UserRepository(userDao = user)
+                        val userRepository = UserRepository(userDao)
                         userRepository.addCoinsToUser(user.uid, coinsUsed) // Refund
                     }
                 }
@@ -323,7 +329,7 @@ class OrderRepository @Inject constructor(
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 currentUser?.let { user ->
                     try {
-                        val userRepository = UserRepository()
+                        val userRepository = UserRepository(userDao)
                         userRepository.addCoinsToUser(user.uid, coinsUsed)
                     } catch (refundException: Exception) {
                         Log.e(TAG, "Failed to refund coins: ${refundException.message}")

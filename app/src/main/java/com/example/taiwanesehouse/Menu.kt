@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.taiwanesehouse.database.entities.FoodItemEntity
+import com.example.taiwanesehouse.FirebaseCartManager
+import com.example.taiwanesehouse.enumclass.Screen
 import com.example.taiwanesehouse.viewmodel.FoodItemViewModel
 
 @Composable
@@ -138,7 +140,9 @@ fun MenuScreenWithDatabase(navController: NavController) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Rice", "Noodles", "Not Too Full", "Snacks", "Drinks")
     var searchText by remember { mutableStateOf("") }
-    val cartItemCount by remember { mutableIntStateOf(0) }
+    val cartManager = remember { FirebaseCartManager() }
+    val cartItems by cartManager.cartItems.collectAsState()
+    val cartItemCount = cartItems.sumOf { it.foodQuantity }
 
     // Collect search results - only search when text is not empty
     val searchResults by if (searchText.isNotEmpty()) {
@@ -162,7 +166,7 @@ fun MenuScreenWithDatabase(navController: NavController) {
                 },
                 actions = {
                     Box {
-                        IconButton(onClick = { navController.navigate("cart")}) {
+                        IconButton(onClick = { navController.navigate(Screen.Cart.name)}) {
                             Icon(
                                 imageVector = Icons.Filled.ShoppingCart,
                                 contentDescription = "Cart",
@@ -173,10 +177,18 @@ fun MenuScreenWithDatabase(navController: NavController) {
                         if (cartItemCount > 0) {
                             Box(
                                 modifier = Modifier
-                                    .size(10.dp)
+                                    .size(18.dp)
                                     .background(Color.Red, CircleShape)
-                                    .align(Alignment.TopEnd)
-                            )
+                                    .align(Alignment.TopEnd),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = cartItemCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 },

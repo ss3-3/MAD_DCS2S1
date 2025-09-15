@@ -42,8 +42,8 @@ fun BottomNavigationBar(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .clickable {
-                    navController.navigate(Screen.Cart.name) {
-                        popUpTo(Screen.Cart.name) { inclusive = true }
+                    navController.navigate(Screen.Order.name) {
+                        popUpTo(Screen.Order.name) { inclusive = true }
                         launchSingleTop = true
                     }
                 }

@@ -19,8 +19,10 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
 
     init {
-        val orderDao = AppDatabase.getDatabase(application).orderDao()
-        repository = OrderRepository(orderDao)
+        val db = AppDatabase.getDatabase(application)
+        val orderDao = db.orderDao()
+        val userDao = db.userDao()
+        repository = OrderRepository(orderDao, userDao)
     }
 
     // UI State

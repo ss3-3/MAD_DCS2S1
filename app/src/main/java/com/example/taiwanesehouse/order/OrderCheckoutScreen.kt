@@ -45,24 +45,21 @@ fun OrderCheckoutScreen(
     val auth = FirebaseAuth.getInstance()
     val orderViewModel: OrderViewModel = viewModel()
 
-    // Get cart data from CartDataManager
-    val cartItems = CartDataManager.getCartItems()
-    val subtotal = CartDataManager.getSubtotal()
-    val coinDiscount = CartDataManager.getCoinDiscount()
-    val finalTotal = CartDataManager.getFinalTotal()
-    val coinsUsed = CartDataManager.getCoinsUsed()
+    // Get cart data: prefer CartDataManager if set, else fall back to live Firebase cart
+    // Use locked items from OrderDataManager
+    val cartItems: List<CartItem> = OrderDataManager.getItems()
+    val subtotal: Double = OrderDataManager.getSubtotal()
+    val coinsUsed: Int = OrderDataManager.getCoinsUsed()
+    val coinDiscount: Double = OrderDataManager.getCoinDiscount()
+    val finalTotal: Double = OrderDataManager.getFinalTotal()
 
     // Order and payment state
     val isLoading by orderManager.isLoading.collectAsState()
     val orderCreated by orderViewModel.orderCreated.collectAsState()
     var isProcessingPayment by remember { mutableStateOf(false) }
 
-    // Form state
-    var customerName by remember { mutableStateOf(auth.currentUser?.displayName ?: "") }
-    var customerEmail by remember { mutableStateOf(auth.currentUser?.email ?: "") }
+    // Only payment selection; no customer info for dine-in/takeaway app
     var customerPhone by remember { mutableStateOf("") }
-    var deliveryAddress by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
     var selectedPaymentMethod by remember { mutableStateOf("cash") }
 
     // Handle order creation success - now proceed to payment
@@ -106,6 +103,18 @@ fun OrderCheckoutScreen(
                         val paymentResult = paymentManager.processPayment(payment.copy(paymentMethod = normalizedMethod), paymentDetails)
 
                         if (paymentResult.isSuccess) {
+                            // Award coins: 1 coin = RM 1 spent (use floor)
+                            val coinsEarned = kotlin.math.floor(finalTotal).toInt()
+                            if (coinsEarned > 0) {
+                                try {
+                                    val userId = auth.currentUser?.uid
+                                    if (userId != null) {
+                                        com.example.taiwanesehouse.repository.UserRepository(
+                                            com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).userDao()
+                                        ).addCoinsToUser(userId, coinsEarned)
+                                    }
+                                } catch (_: Exception) {}
+                            }
                             Toast.makeText(context, "Order placed successfully! Order ID: $orderId", Toast.LENGTH_LONG).show()
 
                             // Clear cart data after successful order
@@ -267,73 +276,16 @@ fun OrderCheckoutScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Customer Information (same as before)
+            // Status banner
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
             ) {
-                Column(
+                Text(
+                    text = "Order status: pending • Please proceed to payment",
+                    color = Color(0xFF8D6E63),
                     modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "👤 Customer Information",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = customerName,
-                        onValueChange = { customerName = it },
-                        label = { Text("Full Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = customerEmail,
-                        onValueChange = { customerEmail = it },
-                        label = { Text("Email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = customerPhone,
-                        onValueChange = { customerPhone = it },
-                        label = { Text("Phone Number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = deliveryAddress,
-                        onValueChange = { deliveryAddress = it },
-                        label = { Text("Delivery Address (Optional)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 3
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = { Text("Special Notes (Optional)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 3
-                    )
-                }
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -361,7 +313,7 @@ fun OrderCheckoutScreen(
                             onClick = { selectedPaymentMethod = "cash" }
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("💵 Cash on Delivery", fontSize = 16.sp)
+                        Text("💵 Pay at Counter", fontSize = 16.sp)
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -400,11 +352,6 @@ fun OrderCheckoutScreen(
                 onClick = {
                     scope.launch {
                         try {
-                            if (customerName.isBlank() || customerEmail.isBlank() || customerPhone.isBlank()) {
-                                Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
-                                return@launch
-                            }
-
                             // Create order with cart data integration
                             val orderItems = cartItems.map { cartItem ->
                                 val addOnCost = cartItem.foodAddOns.sumOf { addOn ->
@@ -423,18 +370,18 @@ fun OrderCheckoutScreen(
                                     addOns = cartItem.foodAddOns,
                                     removals = cartItem.foodRemovals,
                                     itemTotalPrice = (cartItem.basePrice + addOnCost) * cartItem.foodQuantity,
-                                    imageRes = cartItem.imageRes
+                                    imageRes = cartItem.imagesRes
                                 )
                             }
 
                             orderViewModel.createOrderWithCartData(
                                 cartItems = cartItems,
                                 orderItems = orderItems,
-                                customerName = customerName,
-                                customerEmail = customerEmail,
+                                customerName = "",
+                                customerEmail = "",
                                 customerPhone = customerPhone,
-                                deliveryAddress = deliveryAddress.ifBlank { null },
-                                notes = notes.ifBlank { null },
+                                deliveryAddress = null,
+                                notes = null,
                                 paymentMethod = selectedPaymentMethod,
                                 subtotal = subtotal,
                                 coinDiscount = coinDiscount,

@@ -108,6 +108,27 @@ class HybridAuthManager private constructor(context: Context) {
                 return AuthResult.Error("User already exists")
             }
 
+            // Online uniqueness checks (Firestore)
+            try {
+                val emailDup = firestore.collection("users")
+                    .whereEqualTo("email", email.trim().lowercase())
+                    .limit(1)
+                    .get()
+                    .await()
+                if (!emailDup.isEmpty) return AuthResult.Error("Email already in use")
+
+                if (!phoneNumber.isNullOrBlank()) {
+                    val phoneDup = firestore.collection("users")
+                        .whereEqualTo("phoneNumber", cleanPhoneNumber(phoneNumber))
+                        .limit(1)
+                        .get()
+                        .await()
+                    if (!phoneDup.isEmpty) return AuthResult.Error("Phone number already in use")
+                }
+            } catch (_: Exception) {
+                // Ignore network errors here; Firebase Auth will still enforce email uniqueness
+            }
+
             // Try Firebase registration (online)
             val authResult = try {
                 auth.createUserWithEmailAndPassword(email.trim(), password.trim()).await()
@@ -149,6 +170,11 @@ class HybridAuthManager private constructor(context: Context) {
 
                     // Update sync status
                     userDao.updateUser(user.copy(syncStatus = "synced"))
+
+                    // Send verification email
+                    try {
+                        authResult.user?.sendEmailVerification()?.await()
+                    } catch (_: Exception) {}
                 } catch (e: Exception) {
                     // Firebase save failed, mark for later sync
                     userDao.updateUser(user.copy(syncStatus = "pending"))

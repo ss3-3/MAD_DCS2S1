@@ -67,13 +67,13 @@ class FeedbackRepository(
         val feedbackEntity = FeedbackEntity(
             id = docRef.id,
             userId = feedbackData["userId"] as String,
-            userName = feedbackData["userName"] as String,
+            userName = (feedbackData["userName"] as? String) ?: "",
             rating = feedbackData["rating"] as Int,
-            feedbackType = feedbackData["feedbackType"] as String,
-            title = feedbackData["title"] as String,
-            message = feedbackData["message"] as String,
+            feedbackType = (feedbackData["feedbackType"] as? String) ?: "",
+            title = (feedbackData["title"] as? String) ?: "",
+            message = (feedbackData["message"] as? String) ?: "",
             timestamp = feedbackData["timestamp"] as Long,
-            status = feedbackData["status"] as String,
+            status = (feedbackData["status"] as? String) ?: "pending",
             isSynced = true
         )
 
@@ -82,9 +82,45 @@ class FeedbackRepository(
         return docRef.id
     }
 
+    // Enqueue feedback locally when offline
+    suspend fun enqueueFeedbackLocal(feedbackEntity: FeedbackEntity) {
+        feedbackDao.insertFeedback(feedbackEntity.copy(isSynced = false))
+    }
+
+    // Sync pending local feedback to Firestore
+    suspend fun syncPendingFeedback(userId: String): Int {
+        val pending = feedbackDao.getPendingFeedback(userId)
+        var successCount = 0
+        for (fb in pending) {
+            try {
+                val data = hashMapOf(
+                    "userId" to fb.userId,
+                    "userName" to fb.userName,
+                    "rating" to fb.rating,
+                    "feedbackType" to fb.feedbackType,
+                    "title" to fb.title,
+                    "message" to fb.message,
+                    "timestamp" to fb.timestamp,
+                    "status" to fb.status
+                )
+                firestore.collection("feedback").add(data).await()
+                feedbackDao.markFeedbackSynced(fb.id, fb.status)
+                successCount++
+            } catch (_: Exception) {
+                // keep pending
+            }
+        }
+        return successCount
+    }
+
     // Get weekly submission count (from local cache for performance)
     suspend fun getWeeklySubmissionCount(userId: String): Int {
         val oneWeekAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000)
         return feedbackDao.getWeeklySubmissionCount(userId, oneWeekAgo)
+    }
+
+    // Helper to try syncing cached feedback on demand
+    suspend fun trySyncNow(userId: String): Int {
+        return syncPendingFeedback(userId)
     }
 }

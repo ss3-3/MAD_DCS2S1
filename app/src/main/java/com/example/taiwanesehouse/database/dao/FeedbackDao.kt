@@ -24,4 +24,10 @@ interface FeedbackDao {
 
     @Query("SELECT COUNT(*) FROM feedback_cache WHERE userId = :userId AND timestamp > :weekAgo")
     suspend fun getWeeklySubmissionCount(userId: String, weekAgo: Long): Int
+
+    @Query("SELECT * FROM feedback_cache WHERE userId = :userId AND isSynced = 0 ORDER BY timestamp ASC")
+    suspend fun getPendingFeedback(userId: String): List<FeedbackEntity>
+
+    @Query("UPDATE feedback_cache SET isSynced = 1, status = :status WHERE id = :id")
+    suspend fun markFeedbackSynced(id: String, status: String)
 }

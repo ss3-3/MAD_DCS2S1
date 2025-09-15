@@ -2,6 +2,7 @@
 package com.example.taiwanesehouse.database
 
 import androidx.room.Database
+import androidx.room.TypeConverters
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import android.content.Context
@@ -29,6 +30,7 @@ import com.example.taiwanesehouse.database.entities.PaymentEntity
     version = 6, // Increment version for migration
     exportSchema = false
 )
+@TypeConverters(com.example.taiwanesehouse.database.converters.TypeConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun feedbackDao(): FeedbackDao
