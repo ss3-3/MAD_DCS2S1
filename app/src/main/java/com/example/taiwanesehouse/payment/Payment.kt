@@ -190,6 +190,17 @@ fun Payment(
                 )
             }
 
+            // Counter Option
+            item {
+                PaymentMethodCard(
+                    title = "Pay at Counter",
+                    subtitle = "Dine-in, Take-out",
+                    emoji = "📱",
+                    isSelected = selectedPaymentMethod == PaymentMethod.COUNTER,
+                    onClick = { selectedPaymentMethod = PaymentMethod.COUNTER }
+                )
+            }
+
             // Continue Button
             item {
                 Spacer(modifier = Modifier.height(16.dp))

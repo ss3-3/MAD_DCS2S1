@@ -49,8 +49,8 @@ fun BottomNavigationBar(navController: NavController) {
                 }
                 .padding(8.dp)
         ) {
-            Text("🛒", fontSize = 28.sp)
-            Text("Cart", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            Text("\uD83E\uDDFE", fontSize = 28.sp)
+            Text("Order", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         }
 
         Column(

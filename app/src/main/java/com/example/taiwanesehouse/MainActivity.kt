@@ -5,7 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Composable  
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -18,6 +18,7 @@ import com.example.taiwanesehouse.dataclass.PaymentResult
 import com.example.taiwanesehouse.enumclass.*
 import com.example.taiwanesehouse.manager.PaymentDataManager
 import com.example.taiwanesehouse.payment.*
+import com.example.taiwanesehouse.order.OrderCheckoutScreen
 import com.example.taiwanesehouse.ui.theme.TaiwaneseHouseTheme
 import com.example.taiwanesehouse.user_profile.*
 import com.example.taiwanesehouse.viewmodel.*
@@ -69,49 +70,9 @@ fun NavigationApp() {
 
         composable(Screen.Cart.name) { CartScreen(navController) }
 
+        composable(Screen.Order.name) { OrderCheckoutScreen(navController) }
+
         composable(Screen.Payment.name) { Payment(navController = navController) }
-
-        composable(
-            route = "${Screen.Payment.name}/{paymentMethod}/{totalAmount}",
-            arguments = listOf(
-                navArgument("paymentMethod") { type = NavType.StringType },
-                navArgument("totalAmount") { type = NavType.FloatType }
-            )
-        ) { backStackEntry ->
-            val paymentViewModel: PaymentViewModel = viewModel()
-
-            val paymentMethodString = backStackEntry.arguments?.getString("paymentMethod") ?: "CARD"
-            val totalAmount = backStackEntry.arguments?.getFloat("totalAmount")?.toDouble() ?: 0.0
-            val paymentMethod = try {
-                PaymentMethod.valueOf(paymentMethodString)
-            } catch (e: IllegalArgumentException) {
-                PaymentMethod.CARD
-            }
-
-            // Initialize payment data
-            LaunchedEffect(paymentMethod, totalAmount) {
-                paymentViewModel.initializePayment(paymentMethod, totalAmount)
-            }
-
-            PaymentDetailsScreenWithViewModel(
-                viewModel = paymentViewModel,
-                navController = navController,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        composable(Payment.PaymentSuccess.name) {
-            PaymentSuccessScreen(
-                paymentResult = PaymentDataManager.getPaymentResult() ?: PaymentResult(success = true),
-                onBackToMenu = {
-                    PaymentDataManager.clear()
-                    navController.navigate(Screen.Menu.name) {
-                        popUpTo(Payment.PaymentSuccess.name) { inclusive = true }
-                    }
-                },
-                navController = navController
-            )
-        }
 
         composable(Payment.PaymentError.name) {
             PaymentErrorScreen(

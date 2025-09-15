@@ -325,6 +325,12 @@ class HybridAuthManager private constructor(context: Context) {
             false
         }
     }
+    /*
+    * Check email duplication
+     */
+    suspend fun checkEmailExists(email: String): Boolean {
+        return userDao.checkEmailExists(email) > 0
+    }
 }
 
 /**

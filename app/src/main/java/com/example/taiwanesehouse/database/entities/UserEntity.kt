@@ -21,5 +21,6 @@ data class UserEntity(
     val rememberMe: Boolean = false,
     val isLoggedIn: Boolean = false,
     val profileImageUrl: String? = null,
-    val syncStatus: String = "synced" // "synced", "pending", "failed"
+    val syncStatus: String = "synced", // "synced", "pending", "failed"
+    val coins: Int = 0
 )

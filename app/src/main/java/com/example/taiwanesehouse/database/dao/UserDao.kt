@@ -45,4 +45,13 @@ interface UserDao {
 
     @Query("SELECT COUNT(*) FROM users WHERE email = :email OR phoneNumber = :phone")
     suspend fun checkUserExists(email: String, phone: String?): Int
+
+    @Query("SELECT COUNT(*) FROM users WHERE email = :email")
+    suspend fun checkEmailExists(email: String): Int
+
+    @Query("UPDATE users SET coins = :coins WHERE uid = :userId")
+    suspend fun updateUserCoins(userId: String, coins: Int)
+
+    @Query("SELECT coins FROM users WHERE uid = :userId")
+    suspend fun getUserCoins(userId: String): Int?
 }

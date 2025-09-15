@@ -6,6 +6,7 @@ enum class Screen {
     ForgotPassword,
     Menu,
     Cart,
+    Order,
     Payment,        // Keep this for payment method selection
     Profile,
 }

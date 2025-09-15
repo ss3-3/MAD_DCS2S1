@@ -22,7 +22,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.taiwanesehouse.dataclass.CartItem
 import com.example.taiwanesehouse.enumclass.Screen
-import com.example.taiwanesehouse.manager.PaymentDataManager
 import com.example.taiwanesehouse.viewmodel.FoodItemViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -47,9 +46,9 @@ fun CartScreen(
 
     // Calculate totals
     val subtotal = cartItems.sumOf { it.getTotalPrice() }
-    val coinDiscount = coinsToUse * 0.01
+    val coinDiscount = coinsToUse * 0.10
     val finalTotal = (subtotal - coinDiscount).coerceAtLeast(0.0)
-    val maxCoinsUsable = minOf(memberCoins, (subtotal * 100).toInt())
+    val maxCoinsUsable = minOf(memberCoins, kotlin.math.floor(subtotal * 10).toInt())
 
     // Check authentication
     LaunchedEffect(Unit) {
@@ -201,17 +200,16 @@ fun CartScreen(
                             if (cartItems.isNotEmpty()) {
                                 isLoading = true
 
-                                // Store cart data in PaymentDataManager
-                                PaymentDataManager.setCartData(
+                                // Store cart data for checkout
+                                com.example.taiwanesehouse.cart.CartDataManager.setCartData(
                                     cartItems = cartItems,
                                     subtotal = subtotal,
                                     coinDiscount = coinDiscount,
                                     finalTotal = finalTotal,
                                     coinsUsed = coinsToUse
                                 )
-
-                                // Navigate to payment method selection
-                                navController.navigate(Screen.Payment.name)
+                                // Navigate to order method selection
+                                navController.navigate(Screen.Order.name)
                                 isLoading = false
                             }
                         },
@@ -231,7 +229,7 @@ fun CartScreen(
                             )
                         } else {
                             Text(
-                                text = "💳 Proceed to Checkout - RM %.2f".format(finalTotal),
+                                text = "Confirm Order.",
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium

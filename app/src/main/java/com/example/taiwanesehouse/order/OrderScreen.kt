@@ -1,4 +1,4 @@
-package com.example.taiwanesehouse
+package com.example.taiwanesehouse.order
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.taiwanesehouse.FirebaseCartManager
 import com.example.taiwanesehouse.database.entities.FoodItemEntity
 import com.example.taiwanesehouse.dataclass.CartItem
 import com.example.taiwanesehouse.enumclass.Screen
