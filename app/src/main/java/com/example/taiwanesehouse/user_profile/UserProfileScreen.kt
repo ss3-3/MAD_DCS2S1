@@ -217,11 +217,11 @@ fun UserProfileHeader() {
                             .await()
 
                         if (userDoc.exists()) {
-                            val fullName = userDoc.getString("fullName")
+                            val username = userDoc.getString("username")
                             val phoneNumber = userDoc.getString("phoneNumber")
 
-                            if (!fullName.isNullOrBlank()) {
-                                userName = fullName
+                            if (!username.isNullOrBlank()) {
+                                userName = username
                             }
                             if (!phoneNumber.isNullOrBlank()) {
                                 userPhone = phoneNumber

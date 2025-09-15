@@ -5,7 +5,6 @@ import android.content.Context
 import com.example.taiwanesehouse.database.AppDatabase
 import com.example.taiwanesehouse.database.entities.UserEntity
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
@@ -94,7 +93,7 @@ class HybridAuthManager private constructor(context: Context) {
      * Register new user (Hybrid approach)
      */
     suspend fun registerUser(
-        fullName: String,
+        username: String,
         email: String,
         phoneNumber: String?,
         password: String,
@@ -140,7 +139,7 @@ class HybridAuthManager private constructor(context: Context) {
             val uid = authResult?.user?.uid ?: "offline_${System.currentTimeMillis()}"
             val user = UserEntity(
                 uid = uid,
-                fullName = fullName.trim(),
+                username = username.trim(),
                 email = email.trim().lowercase(),
                 phoneNumber = phoneNumber?.let { cleanPhoneNumber(it) },
                 passwordHash = hashPassword(password),
@@ -157,7 +156,7 @@ class HybridAuthManager private constructor(context: Context) {
             if (authResult != null) {
                 try {
                     val userData = hashMapOf(
-                        "fullName" to user.fullName,
+                        "username" to user.username,
                         "email" to user.email,
                         "phoneNumber" to user.phoneNumber,
                         "securityQuestion" to user.securityQuestion,
@@ -240,7 +239,7 @@ class HybridAuthManager private constructor(context: Context) {
                 val userData = getUserDataFromFirestore(fbUser.uid)
                 val user = UserEntity(
                     uid = fbUser.uid,
-                    fullName = userData?.get("fullName") as? String ?: fbUser.displayName ?: "",
+                    username = userData?.get("fullName") as? String ?: fbUser.displayName ?: "",
                     email = fbUser.email ?: "",
                     phoneNumber = userData?.get("phoneNumber") as? String,
                     passwordHash = hashPassword(password),

@@ -1,12 +1,13 @@
 package com.example.taiwanesehouse.user_profile
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
@@ -26,8 +27,12 @@ import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.FirebaseNetworkException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -82,6 +87,34 @@ fun FeedbackScreen(navController: NavController) {
         "complaint" to "Complaint"
     )
 
+    // Function to check actual network connectivity
+    fun isNetworkAvailable(context: Context): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val networkCapabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    // Function to check if exception is network-related
+    fun isNetworkException(exception: Exception): Boolean {
+        return when (exception) {
+            is FirebaseNetworkException -> true
+            is UnknownHostException -> true
+            is SocketTimeoutException -> true
+            is java.net.ConnectException -> true
+            is java.net.NoRouteToHostException -> true
+            is IOException -> {
+                val message = exception.message?.lowercase()
+                message?.contains("network") == true ||
+                        message?.contains("connection") == true ||
+                        message?.contains("timeout") == true ||
+                        message?.contains("unreachable") == true
+            }
+            else -> false
+        }
+    }
+
     // Rate limiting check function
     suspend fun checkRateLimit() {
         try {
@@ -95,11 +128,19 @@ fun FeedbackScreen(navController: NavController) {
             val submissionCount = recentFeedbacks.size()
             remainingSubmissions = maxOf(0, 3 - submissionCount)
             canSubmitFeedback = remainingSubmissions > 0
+
+            // Successfully connected to Firebase - set online to true
+            isOnline = true
         } catch (e: Exception) {
-            // Error checking rate limit, allow submission
-            canSubmitFeedback = true
-            remainingSubmissions = 3
-            isOnline = false
+            // Only set offline if it's actually a network issue AND we can't reach the network
+            if (isNetworkException(e) && !isNetworkAvailable(context)) {
+                isOnline = false
+            } else {
+                // Firebase error but we have internet - keep online status true
+                isOnline = true
+                canSubmitFeedback = true
+                remainingSubmissions = 3
+            }
         }
     }
 
@@ -133,25 +174,54 @@ fun FeedbackScreen(navController: NavController) {
                     null
                 }
             }
+
+            // Successfully loaded from Firebase - set online to true
+            isOnline = true
         } catch (e: Exception) {
-            snackbarHostState.showSnackbar("Error loading feedback history: ${e.localizedMessage}")
-            isOnline = false
+            // Only set offline for actual network issues AND when we can't reach the network
+            if (isNetworkException(e) && !isNetworkAvailable(context)) {
+                isOnline = false
+            } else {
+                // Firebase error but we have internet connection - keep online status true
+                isOnline = true
+                snackbarHostState.showSnackbar("Error loading feedback history: ${e.localizedMessage}")
+            }
         } finally {
             isLoadingHistory = false
         }
     }
 
-    // Check network and sync on screen load (treat as online by default; only mark offline on real failures)
-    LaunchedEffect(currentUser?.uid) {
-        if (currentUser != null) {
-            isOnline = true
-            try {
-                checkRateLimit()
-                loadUserFeedbackHistory()
-            } catch (e: Exception) {
-                isOnline = false
-                // still allow viewing cached history (if any)
+    // Check network and sync on screen load
+    LaunchedEffect(Unit) {
+        // Check network status every 10 seconds
+        while (true) {
+            kotlinx.coroutines.delay(10000)
+            val currentNetworkStatus = isNetworkAvailable(context)
+
+            // If we detect network is back online, reset the status
+            if (!isOnline && currentNetworkStatus) {
+                isOnline = true
+                // Optionally reload data when coming back online
+                if (currentUser != null) {
+                    try {
+                        checkRateLimit()
+                        if (currentScreen == "history") {
+                            loadUserFeedbackHistory()
+                        }
+                    } catch (e: Exception) {
+                        // Handle errors silently for background refresh
+                    }
+                }
             }
+        }
+    }
+
+    // Check network connectivity when entering form screen - MOVED OUTSIDE when()
+    LaunchedEffect(currentScreen) {
+        if (currentScreen == "form") {
+            val networkStatus = isNetworkAvailable(context)
+            println("DEBUG: Network check result: $networkStatus") // Debug log
+            isOnline = networkStatus
         }
     }
 
@@ -162,10 +232,15 @@ fun FeedbackScreen(navController: NavController) {
                 isLoading = true
                 errorMessage = ""
 
-                // Re-check rate limit before submission
-                if (isOnline) {
-                    checkRateLimit()
+                // Check network connectivity first
+                if (!isNetworkAvailable(context)) {
+                    isOnline = false
+                    errorMessage = "No internet connection. Please check your network and try again."
+                    return@launch
                 }
+
+                // Re-check rate limit before submission
+                checkRateLimit()
                 if (!canSubmitFeedback) {
                     errorMessage = "You've reached the weekly feedback limit. Please try again next week."
                     return@launch
@@ -208,47 +283,33 @@ fun FeedbackScreen(navController: NavController) {
                     "appVersion" to "1.0.0"
                 )
 
-                if (isOnline) {
-                    // Submit to Firestore and cache
+                try {
+                    // Submit to Firestore
                     firestore.collection("feedback").add(feedbackData).await()
-                } else {
-                    // Enqueue locally
-                    val entity = com.example.taiwanesehouse.database.entities.FeedbackEntity(
-                        id = "local_${System.currentTimeMillis()}",
-                        userId = feedbackData["userId"] as String,
-                        userName = feedbackData["userName"] as? String ?: "",
-                        rating = feedbackData["rating"] as Int,
-                        feedbackType = feedbackData["feedbackType"] as? String ?: "",
-                        title = feedbackData["title"] as? String ?: "",
-                        message = feedbackData["message"] as? String ?: "",
-                        timestamp = feedbackData["timestamp"] as Long,
-                        status = feedbackData["status"] as? String ?: "pending",
-                        isSynced = false
-                    )
-                    val repo = com.example.taiwanesehouse.repository.FeedbackRepository(
-                        com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).feedbackDao(),
-                        firestore
-                    )
-                    repo.enqueueFeedbackLocal(entity)
-                }
 
-                // Reset form
-                rating = 0
-                feedbackType = "general"
-                feedbackTitle = ""
-                feedbackMessage = ""
-                contactEmail = ""
+                    // Reset form
+                    rating = 0
+                    feedbackType = "general"
+                    feedbackTitle = ""
+                    feedbackMessage = ""
+                    contactEmail = ""
 
-                // Update counts and refresh history
-                checkRateLimit()
-                loadUserFeedbackHistory()
+                    // Update counts and refresh history
+                    checkRateLimit()
+                    loadUserFeedbackHistory()
 
-                if (isOnline) {
                     snackbarHostState.showSnackbar("Feedback submitted successfully!")
                     currentScreen = "history"
-                } else {
-                    snackbarHostState.showSnackbar("No internet. Saved locally and will sync later.")
-                    currentScreen = "main"
+
+                } catch (e: Exception) {
+                    if (isNetworkException(e)) {
+                        isOnline = false
+                        // Try to save locally if you have local storage implementation
+                        errorMessage = "Network error. Please check your connection and try again."
+                    } else {
+                        // Firebase/server error but we have internet
+                        errorMessage = "Failed to submit feedback: ${e.localizedMessage ?: "Please try again later"}"
+                    }
                 }
 
             } catch (e: Exception) {
@@ -350,7 +411,7 @@ fun FeedbackScreen(navController: NavController) {
                                 text = if (isOnline) {
                                     "Share your thoughts and help us improve"
                                 } else {
-                                    "View your previous feedback • Connect to internet to submit new feedback"
+                                    "No internet connection • Connect to submit feedback"
                                 },
                                 fontSize = 14.sp,
                                 color = if (isOnline) Color.Gray else Color.Red,
@@ -370,7 +431,7 @@ fun FeedbackScreen(navController: NavController) {
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Text(
-                                text = if (isOnline) "Online Mode" else "Offline Mode",
+                                text = if (isOnline) "🟢 Online" else "🔴 Offline",
                                 fontWeight = FontWeight.Medium,
                                 color = if (isOnline) Color(0xFF1976D2) else Color.Red
                             )
@@ -384,7 +445,7 @@ fun FeedbackScreen(navController: NavController) {
                                 )
                             } else if (!isOnline) {
                                 Text(
-                                    text = "You can view your previous feedback. Connect to internet to submit new feedback.",
+                                    text = "Please check your internet connection to submit feedback.",
                                     fontSize = 12.sp,
                                     color = Color.Gray,
                                     modifier = Modifier.padding(top = 4.dp)
@@ -415,7 +476,7 @@ fun FeedbackScreen(navController: NavController) {
                                 fontWeight = FontWeight.Bold,
                                 color = if (canSubmitFeedback && isOnline) Color.Black else Color.White
                             )
-                            if (!canSubmitFeedback) {
+                            if (!canSubmitFeedback && isOnline) {
                                 Text(
                                     text = "Weekly limit reached",
                                     fontSize = 12.sp,
@@ -423,7 +484,7 @@ fun FeedbackScreen(navController: NavController) {
                                 )
                             } else if (!isOnline) {
                                 Text(
-                                    text = "Requires internet connection",
+                                    text = "No internet connection",
                                     fontSize = 12.sp,
                                     color = Color.Gray
                                 )
@@ -433,14 +494,19 @@ fun FeedbackScreen(navController: NavController) {
 
                     if (currentUser != null) {
                         OutlinedButton(
-                            onClick = { currentScreen = "history" },
+                            onClick = {
+                                currentScreen = "history"
+                                if (isOnline) {
+                                    scope.launch { loadUserFeedbackHistory() }
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "View My Feedback History ${if (!isOnline) "(Offline)" else ""}",
+                                text = "View My Feedback History",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -467,7 +533,7 @@ fun FeedbackScreen(navController: NavController) {
                                 )
                             ) {
                                 Text(
-                                    text = "Viewing cached data. Connect to internet for latest updates.",
+                                    text = "🔴 No internet connection. Unable to load latest feedback data.",
                                     fontSize = 12.sp,
                                     color = Color(0xFFFF6F00),
                                     modifier = Modifier.padding(12.dp)
@@ -498,7 +564,11 @@ fun FeedbackScreen(navController: NavController) {
                                         fontWeight = FontWeight.Medium
                                     )
                                     Text(
-                                        text = "Your submitted feedback will appear here",
+                                        text = if (isOnline) {
+                                            "Your submitted feedback will appear here"
+                                        } else {
+                                            "Connect to internet to view your feedback history"
+                                        },
                                         fontSize = 14.sp,
                                         color = Color.Gray,
                                         textAlign = TextAlign.Center,
@@ -545,6 +615,25 @@ fun FeedbackScreen(navController: NavController) {
                                     color = Color.Gray,
                                     modifier = Modifier.padding(bottom = 24.dp)
                                 )
+
+                                // Show network status at top of form
+                                if (!isOnline) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = Color(0xFFFFF0F0)
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp)
+                                    ) {
+                                        Text(
+                                            text = "🔴 No internet connection. Please connect to wifi or mobile data to submit feedback.",
+                                            fontSize = 12.sp,
+                                            color = Color.Red,
+                                            modifier = Modifier.padding(12.dp)
+                                        )
+                                    }
+                                }
 
                                 // Rating section
                                 Text(
@@ -686,19 +775,34 @@ fun FeedbackScreen(navController: NavController) {
 
                                 // Error message
                                 if (errorMessage.isNotEmpty()) {
-                                    Text(
-                                        text = errorMessage,
-                                        color = Color.Red,
-                                        fontSize = 12.sp,
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = Color(0xFFFFF0F0)
+                                        ),
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(bottom = 16.dp)
-                                    )
+                                    ) {
+                                        Text(
+                                            text = errorMessage,
+                                            color = Color.Red,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(12.dp)
+                                        )
+                                    }
                                 }
 
                                 // Submit button
                                 Button(
-                                    onClick = { submitFeedback() },
+                                    onClick = {
+                                        // Double check network before submitting
+                                        isOnline = isNetworkAvailable(context)
+                                        if (isOnline) {
+                                            submitFeedback()
+                                        } else {
+                                            errorMessage = "No internet connection. Please check your network and try again."
+                                        }
+                                    },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(50.dp),

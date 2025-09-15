@@ -50,7 +50,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * Register new user
      */
     fun registerUser(
-        fullName: String,
+        username: String,
         email: String,
         phoneNumber: String?,
         password: String,
@@ -61,7 +61,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _authState.value = _authState.value.copy(isLoading = true, errorMessage = "")
 
             val result = authManager.registerUser(
-                fullName = fullName.trim(),
+                username = username.trim(),
                 email = email.trim(),
                 phoneNumber = phoneNumber?.takeIf { it.isNotBlank() },
                 password = password.trim(),

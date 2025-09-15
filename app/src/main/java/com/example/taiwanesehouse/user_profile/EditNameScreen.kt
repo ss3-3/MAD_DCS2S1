@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.taiwanesehouse.enumclass.Screen
+import com.example.taiwanesehouse.utils.UsernameValidator
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
@@ -42,6 +43,7 @@ fun EditNameScreen(navController: NavController) {
     var isLoading by rememberSaveable { mutableStateOf(false) }
     var isLoadingUserData by rememberSaveable { mutableStateOf(true) }
     var errorMessage by rememberSaveable { mutableStateOf("") }
+    var validationMessage by rememberSaveable { mutableStateOf("") }
 
     // Dialog states
     var confirmationDialogState by remember {
@@ -49,12 +51,26 @@ fun EditNameScreen(navController: NavController) {
             ConfirmationDialogState(
                 type = ConfirmationType.UPDATE_USERNAME,
                 title = "Update Username",
-                message = "Are you sure you want to update?",
+                message = "Are you sure you want to update your username?",
                 isVisible = false
             )
         )
     }
     var successDialogVisible by remember { mutableStateOf(false) }
+
+    // Real-time validation
+    LaunchedEffect(newName) {
+        if (newName.trim().isNotEmpty() && newName.trim() != currentName) {
+            val validation = UsernameValidator.validateUsername(newName)
+            validationMessage = if (validation.isValid) {
+                "Username is available"
+            } else {
+                validation.errorMessage
+            }
+        } else {
+            validationMessage = ""
+        }
+    }
 
     // Load current user data
     LaunchedEffect(currentUser) {
@@ -70,7 +86,7 @@ fun EditNameScreen(navController: NavController) {
 
                 if (userDoc.exists()) {
                     val userData = userDoc.data
-                    currentName = userData?.get("fullName")?.toString() ?: currentUser.displayName ?: ""
+                    currentName = userData?.get("username")?.toString() ?: currentUser.displayName ?: ""
                     newName = currentName
                 } else {
                     // Fallback to Firebase Auth display name
@@ -106,18 +122,15 @@ fun EditNameScreen(navController: NavController) {
 
                 val trimmedName = newName.trim()
 
-                if (trimmedName.isBlank()) {
-                    errorMessage = "Name cannot be empty"
+                // Final validation
+                val validationResult = UsernameValidator.validateUsername(trimmedName)
+                if (!validationResult.isValid) {
+                    errorMessage = validationResult.errorMessage
                     return@launch
                 }
 
-                if (trimmedName.length < 2) {
-                    errorMessage = "Name must be at least 2 characters"
-                    return@launch
-                }
-
-                if (trimmedName.length > 50) {
-                    errorMessage = "Name must be less than 50 characters"
+                if (trimmedName == currentName) {
+                    errorMessage = "New username must be different from current username"
                     return@launch
                 }
 
@@ -131,17 +144,17 @@ fun EditNameScreen(navController: NavController) {
                 // Update Firestore document
                 firestore.collection("users")
                     .document(currentUser.uid)
-                    .update("fullName", trimmedName)
+                    .update("username", trimmedName)
                     .await()
 
                 // Update local state
                 currentName = trimmedName
 
-                // Show success dialog instead of snackbar
+                // Show success dialog
                 successDialogVisible = true
 
             } catch (e: Exception) {
-                errorMessage = "Failed to update name: ${e.localizedMessage ?: "Unknown error"}"
+                errorMessage = "Failed to update username: ${e.localizedMessage ?: "Unknown error"}"
             } finally {
                 isLoading = false
             }
@@ -153,7 +166,7 @@ fun EditNameScreen(navController: NavController) {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Edit Name",
+                        "Edit Username",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         ),
@@ -191,7 +204,7 @@ fun EditNameScreen(navController: NavController) {
         // Success dialog
         SuccessDialog(
             isVisible = successDialogVisible,
-            message = "Update Profile Successful",
+            message = "Username Updated Successfully",
             onDismissRequest = {
                 successDialogVisible = false
                 navController.popBackStack()
@@ -222,7 +235,7 @@ fun EditNameScreen(navController: NavController) {
                 }
             }
         } else {
-            // Main content - Using LazyColumn for scrollable content
+            // Main content
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -247,7 +260,7 @@ fun EditNameScreen(navController: NavController) {
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Update Your Name",
+                                text = "Update Your Username",
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black,
@@ -255,14 +268,14 @@ fun EditNameScreen(navController: NavController) {
                             )
 
                             Text(
-                                text = "Enter your new display name below",
+                                text = "Choose a unique username that represents you",
                                 fontSize = 14.sp,
                                 color = Color.Gray,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(bottom = 24.dp)
                             )
 
-                            // Current name display
+                            // Current username display
                             if (currentName.isNotEmpty()) {
                                 Card(
                                     modifier = Modifier
@@ -277,7 +290,7 @@ fun EditNameScreen(navController: NavController) {
                                         modifier = Modifier.padding(16.dp)
                                     ) {
                                         Text(
-                                            text = "Current Name",
+                                            text = "Current Username",
                                             fontSize = 12.sp,
                                             color = Color.Gray,
                                             fontWeight = FontWeight.Medium
@@ -293,60 +306,135 @@ fun EditNameScreen(navController: NavController) {
                                 }
                             }
 
-                            // New name input
+                            // New username input
                             OutlinedTextField(
                                 value = newName,
-                                onValueChange = {
-                                    newName = it
-                                    // Clear error when user starts typing
+                                onValueChange = { input ->
+                                    // Filter out excessive special characters while typing
+                                    val filtered = input.take(30).filter { char ->
+                                        char.isLetterOrDigit() || char.isWhitespace() ||
+                                                char in ".-_"
+                                    }
+                                    newName = filtered
+
+                                    // Clear previous errors when user types
                                     if (errorMessage.isNotEmpty()) {
                                         errorMessage = ""
                                     }
                                 },
-                                label = { Text("New Name") },
+                                label = { Text("New Username") },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
                                 shape = RoundedCornerShape(8.dp),
                                 enabled = !isLoading,
-                                isError = errorMessage.isNotEmpty(),
-                                placeholder = { Text("Enter your new name") }
+                                isError = errorMessage.isNotEmpty() ||
+                                        (validationMessage.isNotEmpty() && !validationMessage.contains("available")),
+                                placeholder = { Text("Enter your username") },
+                                supportingText = {
+                                    if (validationMessage.isNotEmpty()) {
+                                        Text(
+                                            text = validationMessage,
+                                            color = if (validationMessage.contains("available"))
+                                                Color(0xFF4CAF50) else Color.Red,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
                             )
 
-                            // Character count
+                            // Character count and guidelines
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.End
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "${newName.length}/50",
+                                    text = "${newName.length}/30",
                                     fontSize = 12.sp,
-                                    color = if (newName.length > 50) Color.Red else Color.Gray
+                                    color = if (newName.length > 30) Color.Red else Color.Gray
                                 )
+
+                                // Validation status indicator
+                                if (newName.trim().isNotEmpty() && newName.trim() != currentName) {
+                                    val isValid = UsernameValidator.validateUsername(newName).isValid
+                                    Text(
+                                        text = if (isValid) "✓ Valid" else "✗ Invalid",
+                                        fontSize = 12.sp,
+                                        color = if (isValid) Color(0xFF4CAF50) else Color.Red,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
+                            // Username guidelines
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp, bottom = 16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF0F8FF)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp)
+                                ) {
+                                    Text(
+                                        text = "Username Guidelines:",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1976D2),
+                                        modifier = Modifier.padding(bottom = 4.dp)
+                                    )
+                                    Text(
+                                        text = "• 2-30 characters long\n• Letters, numbers, spaces, dots, dashes, underscores only\n• No inappropriate or offensive content\n• Cannot be a system reserved name",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF424242),
+                                        lineHeight = 14.sp
+                                    )
+                                }
                             }
 
                             // Error message
                             if (errorMessage.isNotEmpty()) {
-                                Text(
-                                    text = errorMessage,
-                                    color = Color.Red,
-                                    fontSize = 12.sp,
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFFFF0F0)
+                                    ),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(top = 8.dp),
-                                    textAlign = TextAlign.Start
-                                )
+                                        .padding(bottom = 16.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = errorMessage,
+                                        color = Color.Red,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(12.dp)
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            // Update button
+                            val canUpdate = !isLoading &&
+                                    newName.trim() != currentName &&
+                                    newName.trim().isNotEmpty() &&
+                                    UsernameValidator.validateUsername(newName.trim()).isValid
 
-                            // Update button - now shows confirmation dialog instead of directly updating
                             Button(
                                 onClick = {
-                                    // Show confirmation dialog instead of directly updating
+                                    // Final validation before showing confirmation
+                                    val validation = UsernameValidator.validateUsername(newName.trim())
+                                    if (!validation.isValid) {
+                                        errorMessage = validation.errorMessage
+                                        return@Button
+                                    }
+
                                     confirmationDialogState = confirmationDialogState.copy(
                                         isVisible = true,
+                                        message = "Update username to \"${newName.trim()}\"?",
                                         onConfirm = { updateName() }
                                     )
                                 },
@@ -356,9 +444,14 @@ fun EditNameScreen(navController: NavController) {
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFFFC107),
-                                    contentColor = Color.Black
+                                    contentColor = Color.Black,
+                                    disabledContainerColor = Color.Gray,
+                                    disabledContentColor = Color.White
                                 ),
-                                enabled = !isLoading && newName.trim() != currentName && newName.trim().isNotEmpty()
+                                enabled = !isLoading &&
+                                        newName.trim() != currentName &&
+                                        newName.trim().isNotEmpty() &&
+                                        UsernameValidator.validateUsername(newName.trim()).isValid
                             ) {
                                 if (isLoading) {
                                     CircularProgressIndicator(
@@ -367,7 +460,7 @@ fun EditNameScreen(navController: NavController) {
                                     )
                                 } else {
                                     Text(
-                                        text = "Update Name",
+                                        text = "Update Username",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -401,9 +494,9 @@ fun EditNameScreen(navController: NavController) {
                 item {
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Help text
+                    // Privacy and policy note
                     Text(
-                        text = "Your name will be updated across all parts of the app",
+                        text = "Your username will be visible to other users and will be updated across the app. Please choose responsibly and follow our community guidelines.",
                         fontSize = 12.sp,
                         color = Color.Gray,
                         textAlign = TextAlign.Center,

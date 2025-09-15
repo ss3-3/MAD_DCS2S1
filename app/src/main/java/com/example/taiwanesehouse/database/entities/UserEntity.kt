@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
 data class UserEntity(
     @PrimaryKey
     val uid: String,
-    val fullName: String,
+    val username: String,
     val email: String,
     val phoneNumber: String? = null,
     val passwordHash: String? = null, // For offline login

@@ -1,4 +1,4 @@
-// SignUpScreenRefactored.kt
+// Updated SignUpScreen.kt
 package com.example.taiwanesehouse.user_profile
 
 import androidx.compose.foundation.Image
@@ -25,6 +25,7 @@ import com.example.taiwanesehouse.R
 import com.example.taiwanesehouse.enumclass.Screen
 import com.example.taiwanesehouse.ui.components.*
 import com.example.taiwanesehouse.viewmodel.AuthViewModel
+import com.example.taiwanesehouse.utils.UsernameValidator  // Import the shared utility
 
 @Composable
 fun SignUpScreen(
@@ -47,10 +48,9 @@ fun SignUpScreen(
 
     // Collect state from ViewModel
     val authState by viewModel.authState.collectAsState()
-    val validationState by viewModel.validationState.collectAsState()
 
     // Form states
-    var fullName by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var phoneNumber by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -59,6 +59,9 @@ fun SignUpScreen(
     var securityAnswer by rememberSaveable { mutableStateOf("") }
     var agreeToTerms by rememberSaveable { mutableStateOf(false) }
 
+    // Username validation state
+    var usernameValidationMessage by rememberSaveable { mutableStateOf("") }
+
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Real-time validation
@@ -66,6 +69,20 @@ fun SignUpScreen(
     val isPhoneValid = phoneNumber.isBlank() || viewModel.validatePhone(phoneNumber)
     val isPasswordValid = viewModel.validatePassword(password)
     val passwordsMatch = viewModel.validatePasswordMatch(password, confirmPassword)
+
+    // Username validation using shared utility
+    LaunchedEffect(username) {
+        if (username.trim().isNotEmpty()) {
+            val validation = UsernameValidator.validateUsername(username)
+            usernameValidationMessage = if (validation.isValid) {
+                "Username is available"
+            } else {
+                validation.errorMessage
+            }
+        } else {
+            usernameValidationMessage = ""
+        }
+    }
 
     // Handle navigation on successful registration
     LaunchedEffect(authState.isLoggedIn) {
@@ -84,10 +101,12 @@ fun SignUpScreen(
         }
     }
 
-    // Form validation
+    // Form validation with username validation
     fun validateForm(): Boolean {
+        val usernameValidation = UsernameValidator.validateUsername(username)
         return when {
-            fullName.isBlank() || fullName.length < 2 -> false
+            username.isBlank() || username.length < 2 -> false
+            !usernameValidation.isValid -> false
             email.isBlank() -> false
             !isEmailValid -> false
             phoneNumber.isNotEmpty() && !isPhoneValid -> false
@@ -100,11 +119,18 @@ fun SignUpScreen(
         }
     }
 
-    // Register function
+    // Register function with final username validation
     fun createAccount() {
+        // Final validation before submission
+        val usernameValidation = UsernameValidator.validateUsername(username.trim())
+        if (!usernameValidation.isValid) {
+            usernameValidationMessage = usernameValidation.errorMessage
+            return
+        }
+
         if (validateForm()) {
             viewModel.registerUser(
-                fullName = fullName,
+                username = username.trim(),
                 email = email,
                 phoneNumber = phoneNumber.takeIf { it.isNotBlank() },
                 password = password,
@@ -182,22 +208,40 @@ fun SignUpScreen(
                                 modifier = Modifier.padding(bottom = 20.dp)
                             )
 
-                            // Full Name
+                            // Username with validation (using shared utility)
                             OutlinedTextField(
-                                value = fullName,
-                                onValueChange = {
-                                    fullName = it
+                                value = username,
+                                onValueChange = { input ->
+                                    // Filter input while typing
+                                    val filtered = input.take(30).filter { char ->
+                                        char.isLetterOrDigit() || char.isWhitespace() || char in ".-_"
+                                    }
+                                    username = filtered
                                     viewModel.clearError()
                                 },
-                                label = { Text("Full Name") },
+                                label = { Text("Username *") },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                enabled = !authState.isLoading,
+                                isError = usernameValidationMessage.isNotEmpty() &&
+                                        !usernameValidationMessage.contains("available"),
+                                placeholder = { Text("Enter your username") },
+                                supportingText = {
+                                    if (usernameValidationMessage.isNotEmpty()) {
+                                        Text(
+                                            text = usernameValidationMessage,
+                                            color = if (usernameValidationMessage.contains("available"))
+                                                Color(0xFF4CAF50) else Color.Red,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Email field
+                            // Email field (your existing component)
                             EmailField(
                                 value = email,
                                 onValueChange = {
@@ -211,7 +255,7 @@ fun SignUpScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Phone Number (Optional)
+                            // Phone Number (Optional) - your existing component
                             PhoneField(
                                 value = phoneNumber,
                                 onValueChange = {
@@ -225,7 +269,7 @@ fun SignUpScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Password
+                            // Password - your existing component
                             PasswordField(
                                 value = password,
                                 onValueChange = {
@@ -237,7 +281,7 @@ fun SignUpScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Confirm Password
+                            // Confirm Password - your existing component
                             ConfirmPasswordField(
                                 value = confirmPassword,
                                 onValueChange = {
@@ -251,7 +295,7 @@ fun SignUpScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Security Question Dropdown
+                            // Security Question Dropdown - your existing component
                             SecurityQuestionDropdown(
                                 selectedQuestion = selectedQuestion,
                                 onQuestionSelected = {
@@ -264,7 +308,7 @@ fun SignUpScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Security Answer
+                            // Security Answer - your existing component
                             SecurityAnswerField(
                                 value = securityAnswer,
                                 onValueChange = {
@@ -277,7 +321,7 @@ fun SignUpScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Error message
+                            // Error message - your existing component
                             ErrorCard(
                                 message = authState.errorMessage
                             )
@@ -286,7 +330,7 @@ fun SignUpScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
 
-                            // Terms and conditions
+                            // Terms and conditions - your existing component
                             TermsCheckbox(
                                 checked = agreeToTerms,
                                 onCheckedChange = { agreeToTerms = it }
@@ -294,7 +338,7 @@ fun SignUpScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Create Account button
+                            // Create Account button - your existing component
                             AuthButton(
                                 text = "Create Account",
                                 onClick = { createAccount() },
