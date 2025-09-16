@@ -122,10 +122,20 @@ fun OrderScreenWithDatabase(
     }
 
     foodItem?.let { item ->
+        val isDrink = item.category.equals("Drinks", ignoreCase = true)
         val eggPrice = 1.0
         val vegetablePrice = 2.0
-        val totalPrice = (item.price + (if (eggAddOn) eggPrice else 0.0) +
-                (if (vegetableAddOn) vegetablePrice else 0.0)) * foodQuantity
+        val totalPrice = (item.price + (if (!isDrink && eggAddOn) eggPrice else 0.0) +
+                (if (!isDrink && vegetableAddOn) vegetablePrice else 0.0)) * foodQuantity
+
+        LaunchedEffect(item.id) {
+            if (isDrink) {
+                eggAddOn = false
+                vegetableAddOn = false
+                removeSpringOnion = false
+                removeVegetable = false
+            }
+        }
 
         Column(
             modifier = Modifier
@@ -303,7 +313,7 @@ fun OrderScreenWithDatabase(
 
                 // Food Description
                 Text(
-                    text = if (item.description.isNotEmpty()) item.description else "Delicious ${item.name} prepared with care.",
+                    text = item.description.ifEmpty { "Delicious ${item.name} prepared with care." },
                     fontSize = 14.sp,
                     color = Color.Gray,
                     lineHeight = 18.sp
@@ -311,54 +321,136 @@ fun OrderScreenWithDatabase(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Customization Box
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Color(0xFFFDD835),
-                            RoundedCornerShape(20.dp)
-                        )
-                        .padding(16.dp)
-                ) {
-                    Column {
-                        // ADD ON section
-                        Text(
-                            text = "➕ Add-On",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.padding(top = 12.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // EGG add-on
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { eggAddOn = !eggAddOn }
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "🥚 Egg x1",
-                                fontSize = 16.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold
+                // Customization Box (hidden for Drinks category)
+                if (!isDrink) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Color(0xFFFDD835),
+                                RoundedCornerShape(20.dp)
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            .padding(16.dp)
+                    ) {
+                        Column {
+                            // ADD ON section
+                            Text(
+                                text = "➕ Add-On",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(top = 12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // EGG add-on
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { eggAddOn = !eggAddOn }
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = "💰 RM 1.00",
+                                    text = "🥚 Egg x1",
                                     fontSize = 16.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "💰 RM 1.00",
+                                        fontSize = 16.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Checkbox(
+                                        checked = eggAddOn,
+                                        onCheckedChange = { eggAddOn = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = Color.White,
+                                            uncheckedColor = Color.White,
+                                            checkmarkColor = Color.Black
+                                        )
+                                    )
+                                }
+                            }
+
+                            // VEGETABLE add-on
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { vegetableAddOn = !vegetableAddOn }
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "🥬 Vegetable",
+                                    fontSize = 16.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "💰 RM 2.00",
+                                        fontSize = 16.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Checkbox(
+                                        checked = vegetableAddOn,
+                                        onCheckedChange = { vegetableAddOn = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = Color.White,
+                                            uncheckedColor = Color.White,
+                                            checkmarkColor = Color.Black
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            HorizontalDivider(
+                                thickness = 1.dp,
+                                color = Color.White
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // REMOVE section
+                            Text(
+                                text = "➖ Remove",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // SPRING ONION removal
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { removeSpringOnion = !removeSpringOnion }
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "🧅 Spring Onion",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
                                 Checkbox(
-                                    checked = eggAddOn,
-                                    onCheckedChange = { eggAddOn = it },
+                                    checked = removeSpringOnion,
+                                    onCheckedChange = { removeSpringOnion = it },
                                     colors = CheckboxDefaults.colors(
                                         checkedColor = Color.White,
                                         uncheckedColor = Color.White,
@@ -366,34 +458,25 @@ fun OrderScreenWithDatabase(
                                     )
                                 )
                             }
-                        }
 
-                        // VEGETABLE add-on
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { vegetableAddOn = !vegetableAddOn }
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "🥬 Vegetable",
-                                fontSize = 16.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            // VEGETABLE removal
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { removeVegetable = !removeVegetable }
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = "💰 RM 2.00",
+                                    text = "🥬 Vegetable",
                                     fontSize = 16.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Checkbox(
-                                    checked = vegetableAddOn,
-                                    onCheckedChange = { vegetableAddOn = it },
+                                    checked = removeVegetable,
+                                    onCheckedChange = { removeVegetable = it },
                                     colors = CheckboxDefaults.colors(
                                         checkedColor = Color.White,
                                         uncheckedColor = Color.White,
@@ -401,79 +484,15 @@ fun OrderScreenWithDatabase(
                                     )
                                 )
                             }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        HorizontalDivider(
-                            thickness = 1.dp,
-                            color = Color.White
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // REMOVE section
-                        Text(
-                            text = "➖ Remove",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // SPRING ONION removal
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { removeSpringOnion = !removeSpringOnion }
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "🧅 Spring Onion",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                            Checkbox(
-                                checked = removeSpringOnion,
-                                onCheckedChange = { removeSpringOnion = it },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = Color.White,
-                                    uncheckedColor = Color.White,
-                                    checkmarkColor = Color.Black
-                                )
-                            )
-                        }
-
-                        // VEGETABLE removal
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { removeVegetable = !removeVegetable }
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "🥬 Vegetable",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                            Checkbox(
-                                checked = removeVegetable,
-                                onCheckedChange = { removeVegetable = it },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = Color.White,
-                                    uncheckedColor = Color.White,
-                                    checkmarkColor = Color.Black
-                                )
-                            )
                         }
                     }
+                } else {
+                    // Drinks: show note that customization is not available
+                    Text(
+                        text = "No customization available for drinks.",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -533,7 +552,7 @@ fun OrderScreenWithDatabase(
                                         removeVegetable = false
 
                                         Toast.makeText(context, "Added to cart! 🛒", Toast.LENGTH_SHORT).show()
-                                        navController.navigate(Screen.Cart.name)
+                                        navController.navigate(Screen.Menu.name)
                                     } else {
                                         Toast.makeText(context, "Failed to add to cart ❌", Toast.LENGTH_SHORT).show()
                                     }

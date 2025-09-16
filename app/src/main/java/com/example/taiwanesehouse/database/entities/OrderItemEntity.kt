@@ -22,8 +22,6 @@ data class OrderEntity(
     val totalAmount: Double,
     val orderStatus: String,
     val orderDate: Date,
-    val estimatedDeliveryTime: String? = null,
-    val deliveryAddress: String? = null,
     val notes: String? = null,
     val paymentStatus: String = "pending",
     val paymentMethod: String? = null,

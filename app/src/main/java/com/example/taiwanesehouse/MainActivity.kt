@@ -73,6 +73,39 @@ fun NavigationApp() {
 
         composable(Screen.Payment.name) { Payment(navController = navController) }
 
+        // Card/Ewallet payment pages with args: orderId and amount
+        composable(
+            route = "CardPayment/{orderId}/{amount}",
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType },
+                navArgument("amount") { type = NavType.FloatType }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            val amount = (backStackEntry.arguments?.getFloat("amount") ?: 0f).toDouble()
+            com.example.taiwanesehouse.payment.CardPaymentPage(
+                navController = navController,
+                orderId = orderId,
+                amount = amount
+            )
+        }
+
+        composable(
+            route = "EwalletPayment/{orderId}/{amount}",
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType },
+                navArgument("amount") { type = NavType.FloatType }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            val amount = (backStackEntry.arguments?.getFloat("amount") ?: 0f).toDouble()
+            com.example.taiwanesehouse.payment.EwalletPaymentPage(
+                navController = navController,
+                orderId = orderId,
+                amount = amount
+            )
+        }
+
         composable(Screen.Profile.name) { UserProfileScreen(navController = navController) }
 
         composable(UserProfile.EditName.name) { EditNameScreen(navController = navController) }

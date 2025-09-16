@@ -65,7 +65,7 @@ fun CardPaymentFormWithViewModel(
             OutlinedTextField(
                 value = cardDetails.cardNumber,
                 onValueChange = { input ->
-                    val digits = input.filter { it.isDigit() }.take(16)
+                    val digits = input.filter { it.isDigit() }.take(19)
                     val formatted = digits.chunked(4).joinToString(" ")
                     viewModel.updateCardNumber(formatted)
                 },
@@ -102,13 +102,13 @@ fun CardPaymentFormWithViewModel(
                 OutlinedTextField(
                     value = cardDetails.cvv,
                     onValueChange = { input ->
-                        val digits = input.filter { it.isDigit() }.take(3)
+                        val digits = input.filter { it.isDigit() }.take(4)
                         viewModel.updateCvv(digits)
                     },
                     label = { Text("CVV") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    placeholder = { Text("123") },
+                    placeholder = { Text("3-4 digits") },
                     singleLine = true
                 )
             }

@@ -108,8 +108,6 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                     totalAmount = totalAmount,
                     orderStatus = "pending",
                     orderDate = Date(),
-                    estimatedDeliveryTime = calculateEstimatedDeliveryTime(),
-                    deliveryAddress = deliveryAddress,
                     notes = notes,
                     paymentStatus = "pending",
                     paymentMethod = paymentMethod,
@@ -181,8 +179,6 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                     totalAmount = finalTotal, // Use final total with discounts
                     orderStatus = "pending",
                     orderDate = Date(),
-                    estimatedDeliveryTime = calculateEstimatedDeliveryTime(),
-                    deliveryAddress = deliveryAddress,
                     notes = notes,
                     paymentStatus = if (paymentMethod == "cash") "pending" else "pending",
                     paymentMethod = paymentMethod,
@@ -312,14 +308,6 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                 else -> 0.0
             }
         }
-    }
-
-    private fun calculateEstimatedDeliveryTime(): String {
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.MINUTE, 25) // Add 25 minutes
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-        val minute = calendar.get(Calendar.MINUTE)
-        return String.format("%02d:%02d", hour, minute)
     }
 
     // Clear error and success states

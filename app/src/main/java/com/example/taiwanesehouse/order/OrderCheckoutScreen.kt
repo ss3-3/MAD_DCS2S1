@@ -49,9 +49,9 @@ fun OrderCheckoutScreen(
     // Use locked items from OrderDataManager
     val cartItems: List<CartItem> = OrderDataManager.getItems()
     val subtotal: Double = OrderDataManager.getSubtotal()
-    val coinsUsed: Int = OrderDataManager.getCoinsUsed()
-    val coinDiscount: Double = OrderDataManager.getCoinDiscount()
-    val finalTotal: Double = OrderDataManager.getFinalTotal()
+    var coinsUsed by remember { mutableStateOf(OrderDataManager.getCoinsUsed()) }
+    var coinDiscount by remember { mutableStateOf(OrderDataManager.getCoinDiscount()) }
+    var finalTotal by remember { mutableStateOf(OrderDataManager.getFinalTotal()) }
 
     // Order and payment state
     val isLoading by orderManager.isLoading.collectAsState()
@@ -98,6 +98,19 @@ fun OrderCheckoutScreen(
                                 "redirectUrl" to "taiwanesehouse://payment/success"
                             )
                             else -> emptyMap()
+                        }
+
+                        // Navigate to dedicated forms for card/ewallet; process inline for cash/online
+                        if (normalizedMethod == "card") {
+                            isProcessingPayment = false
+                            navController.navigate("CardPayment/${orderId}/${finalTotal.toFloat()}")
+                            orderViewModel.clearOrderCreated()
+                            return@launch
+                        } else if (normalizedMethod == "ewallet") {
+                            isProcessingPayment = false
+                            navController.navigate("EwalletPayment/${orderId}/${finalTotal.toFloat()}")
+                            orderViewModel.clearOrderCreated()
+                            return@launch
                         }
 
                         val paymentResult = paymentManager.processPayment(payment.copy(paymentMethod = normalizedMethod), paymentDetails)
@@ -271,6 +284,50 @@ fun OrderCheckoutScreen(
                             color = Color(0xFFFFC107)
                         )
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Coin selector (1 coin = RM0.10)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🎁 Use Coins",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Coins:", color = Color.Black)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = {
+                                coinsUsed = (coinsUsed - 1).coerceAtLeast(0)
+                                OrderDataManager.setCoinsUsed(coinsUsed)
+                                coinDiscount = OrderDataManager.getCoinDiscount()
+                                finalTotal = OrderDataManager.getFinalTotal()
+                            }) { Text("➖") }
+                            Text("$coinsUsed", color = Color.Black)
+                            TextButton(onClick = {
+                                // Max by subtotal
+                                val maxBySubtotal = kotlin.math.floor(subtotal / 0.10).toInt()
+                                coinsUsed = (coinsUsed + 1).coerceAtMost(maxBySubtotal)
+                                OrderDataManager.setCoinsUsed(coinsUsed)
+                                coinDiscount = OrderDataManager.getCoinDiscount()
+                                finalTotal = OrderDataManager.getFinalTotal()
+                            }) { Text("➕") }
+                        }
+                    }
+                    Text("Discount: -RM %.2f".format(coinDiscount), color = Color(0xFF4CAF50))
                 }
             }
 
