@@ -3,6 +3,7 @@ package com.example.taiwanesehouse.user_profile
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -317,528 +318,534 @@ fun PasswordUpdateScreen(navController: NavController) {
             }
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-            // Main card
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                shadowElevation = 4.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            item {
+                // Main card
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    when (currentMethod) {
-                        PasswordUpdateMethod.Selection -> {
-                            // Method selection
-                            Text(
-                                text = "Choose Update Method",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            Text(
-                                text = "How would you like to update your password?",
-                                fontSize = 14.sp,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-
-                            // Email verification warning card
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF0F7FF)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "🔒",
-                                        fontSize = 18.sp,
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    )
-                                    Text(
-                                        text = "Email verification is required for password changes for security purposes.",
-                                        fontSize = 12.sp,
-                                        color = Color(0xFF1976D2),
-                                        lineHeight = 16.sp
-                                    )
-                                }
-                            }
-
-                            // Email method
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = !isCheckingVerification) {
-                                        currentMethod = PasswordUpdateMethod.EmailMethod
-                                    }
-                                    .padding(bottom = 12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isCheckingVerification) Color(0xFFF5F5F5) else Color(0xFFF8F9FA)
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(20.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    if (isCheckingVerification) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .padding(end = 16.dp),
-                                            strokeWidth = 2.dp,
-                                            color = Color.Gray
-                                        )
-                                    } else {
-                                        Text(
-                                            text = "📧",
-                                            fontSize = 28.sp,
-                                            modifier = Modifier.padding(end = 16.dp)
-                                        )
-                                    }
-                                    Column(
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(
-                                            text = "Email Reset",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isCheckingVerification) Color.Gray else Color.Black
-                                        )
-                                        Text(
-                                            text = "Get a secure password reset link via email",
-                                            fontSize = 13.sp,
-                                            color = Color.Gray,
-                                            modifier = Modifier.padding(top = 4.dp)
-                                        )
-                                        Text(
-                                            text = "Recommended • Most secure",
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF4CAF50),
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = "→",
-                                        fontSize = 18.sp,
-                                        color = if (isCheckingVerification) Color.Gray else Color.Gray,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            // Current password method
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = !isCheckingVerification) {
-                                        currentMethod = PasswordUpdateMethod.CurrentPasswordMethod
-                                    },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isCheckingVerification) Color(0xFFF5F5F5) else Color(0xFFF8F9FA)
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(20.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "🔐",
-                                        fontSize = 28.sp,
-                                        modifier = Modifier.padding(end = 16.dp)
-                                    )
-                                    Column(
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(
-                                            text = "Current Password",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isCheckingVerification) Color.Gray else Color.Black
-                                        )
-                                        Text(
-                                            text = "Enter current password and set new one",
-                                            fontSize = 13.sp,
-                                            color = Color.Gray,
-                                            modifier = Modifier.padding(top = 4.dp)
-                                        )
-                                        Text(
-                                            text = "Quick update",
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF2196F3),
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = "→",
-                                        fontSize = 18.sp,
-                                        color = Color.Gray,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-
-                        PasswordUpdateMethod.EmailMethod -> {
-                            // Email reset confirmation
-                            Text(
-                                text = "Email Password Reset",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            Text(
-                                text = "We'll send a secure password reset link to your registered email address.",
-                                fontSize = 14.sp,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-
-                            // Email display
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 20.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF0F7FF)
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Reset link will be sent to:",
-                                        fontSize = 12.sp,
-                                        color = Color.Gray,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = currentUser?.email ?: "Not available",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color.Black,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            }
-
-                            // Warning
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 20.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFFFF3E0)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "⚠️",
-                                        fontSize = 18.sp,
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    )
-                                    Text(
-                                        text = "You will be logged out after sending the reset email for security reasons.",
-                                        fontSize = 12.sp,
-                                        color = Color(0xFFE65100),
-                                        lineHeight = 16.sp
-                                    )
-                                }
-                            }
-
-                            // Send email button
-                            Button(
-                                onClick = { sendPasswordResetEmail() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFFC107),
-                                    contentColor = Color.Black
-                                ),
-                                enabled = !isLoading && !isCheckingVerification
-                            ) {
-                                if (isLoading || isCheckingVerification) {
-                                    CircularProgressIndicator(
-                                        color = Color.Black,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Send Reset Email",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            TextButton(
-                                onClick = {
-                                    currentMethod = PasswordUpdateMethod.Selection
-                                    clearMessages()
-                                }
-                            ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        when (currentMethod) {
+                            PasswordUpdateMethod.Selection -> {
+                                // Method selection
                                 Text(
-                                    text = "← Back to Options",
-                                    color = Color.Gray,
-                                    fontSize = 14.sp
+                                    text = "Choose Update Method",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    modifier = Modifier.padding(bottom = 8.dp)
                                 )
-                            }
-                        }
 
-                        PasswordUpdateMethod.CurrentPasswordMethod -> {
-                            // Current password form
-                            Text(
-                                text = "Update Password",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
+                                Text(
+                                    text = "How would you like to update your password?",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 24.dp)
+                                )
 
-                            Text(
-                                text = "Enter your current password and choose a new one",
-                                fontSize = 14.sp,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-
-                            // Current password field
-                            OutlinedTextField(
-                                value = currentPassword,
-                                onValueChange = {
-                                    currentPassword = it
-                                    clearMessages()
-                                },
-                                label = { Text("Current Password") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                                visualTransformation = if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                trailingIcon = {
-                                    TextButton(
-                                        onClick = { currentPasswordVisible = !currentPasswordVisible }
-                                    ) {
-                                        Text(
-                                            text = if (currentPasswordVisible) "Hide" else "Show",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF007AFF)
-                                        )
-                                    }
-                                },
-                                isError = errorMessage.isNotEmpty() && errorMessage.contains("current password", ignoreCase = true)
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // New password field
-                            OutlinedTextField(
-                                value = newPassword,
-                                onValueChange = {
-                                    newPassword = it
-                                    clearMessages()
-                                },
-                                label = { Text("New Password") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                                visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                trailingIcon = {
-                                    TextButton(
-                                        onClick = { newPasswordVisible = !newPasswordVisible }
-                                    ) {
-                                        Text(
-                                            text = if (newPasswordVisible) "Hide" else "Show",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF007AFF)
-                                        )
-                                    }
-                                },
-                                supportingText = { Text("At least 6 characters", fontSize = 12.sp) },
-                                isError = errorMessage.isNotEmpty() && (errorMessage.contains("new password", ignoreCase = true) || errorMessage.contains("weak", ignoreCase = true))
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Confirm new password field
-                            OutlinedTextField(
-                                value = confirmNewPassword,
-                                onValueChange = {
-                                    confirmNewPassword = it
-                                    clearMessages()
-                                },
-                                label = { Text("Confirm New Password") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp),
-                                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                trailingIcon = {
-                                    TextButton(
-                                        onClick = { confirmPasswordVisible = !confirmPasswordVisible }
-                                    ) {
-                                        Text(
-                                            text = if (confirmPasswordVisible) "Hide" else "Show",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF007AFF)
-                                        )
-                                    }
-                                },
-                                isError = errorMessage.isNotEmpty() && errorMessage.contains("match", ignoreCase = true)
-                            )
-
-                            // Error message
-                            if (errorMessage.isNotEmpty()) {
+                                // Email verification warning card
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(top = 8.dp),
+                                        .padding(bottom = 16.dp),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = Color.Red.copy(alpha = 0.1f)
+                                        containerColor = Color(0xFFF0F7FF)
                                     ),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text(
-                                        text = errorMessage,
-                                        color = Color.Red,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(12.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // Update button
-                            Button(
-                                onClick = {
-                                    if (validateCurrentPasswordForm()) {
-                                        updatePasswordWithCurrentPassword()
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "🔒",
+                                            fontSize = 18.sp,
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                        Text(
+                                            text = "Email verification is required for password changes for security purposes.",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF1976D2),
+                                            lineHeight = 16.sp
+                                        )
                                     }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFFC107),
-                                    contentColor = Color.Black
-                                ),
-                                enabled = !isLoading && !isCheckingVerification
-                            ) {
-                                if (isLoading || isCheckingVerification) {
-                                    CircularProgressIndicator(
-                                        color = Color.Black,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                } else {
+                                }
+
+                                // Email method
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = !isCheckingVerification) {
+                                            currentMethod = PasswordUpdateMethod.EmailMethod
+                                        }
+                                        .padding(bottom = 12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isCheckingVerification) Color(0xFFF5F5F5) else Color(0xFFF8F9FA)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (isCheckingVerification) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .padding(end = 16.dp),
+                                                strokeWidth = 2.dp,
+                                                color = Color.Gray
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "📧",
+                                                fontSize = 28.sp,
+                                                modifier = Modifier.padding(end = 16.dp)
+                                            )
+                                        }
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = "Email Reset",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (isCheckingVerification) Color.Gray else Color.Black
+                                            )
+                                            Text(
+                                                text = "Get a secure password reset link via email",
+                                                fontSize = 13.sp,
+                                                color = Color.Gray,
+                                                modifier = Modifier.padding(top = 4.dp)
+                                            )
+                                            Text(
+                                                text = "Recommended • Most secure",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF4CAF50),
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
+                                        Text(
+                                            text = "→",
+                                            fontSize = 18.sp,
+                                            color = if (isCheckingVerification) Color.Gray else Color.Gray,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                // Current password method
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = !isCheckingVerification) {
+                                            currentMethod = PasswordUpdateMethod.CurrentPasswordMethod
+                                        },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isCheckingVerification) Color(0xFFF5F5F5) else Color(0xFFF8F9FA)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "🔐",
+                                            fontSize = 28.sp,
+                                            modifier = Modifier.padding(end = 16.dp)
+                                        )
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = "Current Password",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (isCheckingVerification) Color.Gray else Color.Black
+                                            )
+                                            Text(
+                                                text = "Enter current password and set new one",
+                                                fontSize = 13.sp,
+                                                color = Color.Gray,
+                                                modifier = Modifier.padding(top = 4.dp)
+                                            )
+                                            Text(
+                                                text = "Quick update",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF2196F3),
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
+                                        Text(
+                                            text = "→",
+                                            fontSize = 18.sp,
+                                            color = Color.Gray,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            PasswordUpdateMethod.EmailMethod -> {
+                                // Email reset confirmation
+                                Text(
+                                    text = "Email Password Reset",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                Text(
+                                    text = "We'll send a secure password reset link to your registered email address.",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 24.dp)
+                                )
+
+                                // Email display
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 20.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFF0F7FF)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        Text(
+                                            text = "Reset link will be sent to:",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = currentUser?.email ?: "Not available",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color.Black,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                // Warning
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 20.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFFFF3E0)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "⚠️",
+                                            fontSize = 18.sp,
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                        Text(
+                                            text = "You will be logged out after sending the reset email for security reasons.",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFFE65100),
+                                            lineHeight = 16.sp
+                                        )
+                                    }
+                                }
+
+                                // Send email button
+                                Button(
+                                    onClick = { sendPasswordResetEmail() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFC107),
+                                        contentColor = Color.Black
+                                    ),
+                                    enabled = !isLoading && !isCheckingVerification
+                                ) {
+                                    if (isLoading || isCheckingVerification) {
+                                        CircularProgressIndicator(
+                                            color = Color.Black,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "Send Reset Email",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                TextButton(
+                                    onClick = {
+                                        currentMethod = PasswordUpdateMethod.Selection
+                                        clearMessages()
+                                    }
+                                ) {
                                     Text(
-                                        text = "Update Password",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
+                                        text = "← Back to Options",
+                                        color = Color.Gray,
+                                        fontSize = 14.sp
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            TextButton(
-                                onClick = {
-                                    currentMethod = PasswordUpdateMethod.Selection
-                                    currentPassword = ""
-                                    newPassword = ""
-                                    confirmNewPassword = ""
-                                    clearMessages()
-                                }
-                            ) {
+                            PasswordUpdateMethod.CurrentPasswordMethod -> {
+                                // Current password form
                                 Text(
-                                    text = "← Back to Options",
+                                    text = "Update Password",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                Text(
+                                    text = "Enter your current password and choose a new one",
+                                    fontSize = 14.sp,
                                     color = Color.Gray,
-                                    fontSize = 14.sp
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 24.dp)
+                                )
+
+                                // Current password field
+                                OutlinedTextField(
+                                    value = currentPassword,
+                                    onValueChange = {
+                                        currentPassword = it
+                                        clearMessages()
+                                    },
+                                    label = { Text("Current Password") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(8.dp),
+                                    visualTransformation = if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    trailingIcon = {
+                                        TextButton(
+                                            onClick = { currentPasswordVisible = !currentPasswordVisible }
+                                        ) {
+                                            Text(
+                                                text = if (currentPasswordVisible) "Hide" else "Show",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF007AFF)
+                                            )
+                                        }
+                                    },
+                                    isError = errorMessage.isNotEmpty() && errorMessage.contains("current password", ignoreCase = true)
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // New password field
+                                OutlinedTextField(
+                                    value = newPassword,
+                                    onValueChange = {
+                                        newPassword = it
+                                        clearMessages()
+                                    },
+                                    label = { Text("New Password") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(8.dp),
+                                    visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    trailingIcon = {
+                                        TextButton(
+                                            onClick = { newPasswordVisible = !newPasswordVisible }
+                                        ) {
+                                            Text(
+                                                text = if (newPasswordVisible) "Hide" else "Show",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF007AFF)
+                                            )
+                                        }
+                                    },
+                                    supportingText = { Text("At least 6 characters", fontSize = 12.sp) },
+                                    isError = errorMessage.isNotEmpty() && (errorMessage.contains("new password", ignoreCase = true) || errorMessage.contains("weak", ignoreCase = true))
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Confirm new password field
+                                OutlinedTextField(
+                                    value = confirmNewPassword,
+                                    onValueChange = {
+                                        confirmNewPassword = it
+                                        clearMessages()
+                                    },
+                                    label = { Text("Confirm New Password") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(8.dp),
+                                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    trailingIcon = {
+                                        TextButton(
+                                            onClick = { confirmPasswordVisible = !confirmPasswordVisible }
+                                        ) {
+                                            Text(
+                                                text = if (confirmPasswordVisible) "Hide" else "Show",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF007AFF)
+                                            )
+                                        }
+                                    },
+                                    isError = errorMessage.isNotEmpty() && errorMessage.contains("match", ignoreCase = true)
+                                )
+
+                                // Error message
+                                if (errorMessage.isNotEmpty()) {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = Color.Red.copy(alpha = 0.1f)
+                                        ),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = errorMessage,
+                                            color = Color.Red,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(12.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                // Update button
+                                Button(
+                                    onClick = {
+                                        if (validateCurrentPasswordForm()) {
+                                            updatePasswordWithCurrentPassword()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFC107),
+                                        contentColor = Color.Black
+                                    ),
+                                    enabled = !isLoading && !isCheckingVerification
+                                ) {
+                                    if (isLoading || isCheckingVerification) {
+                                        CircularProgressIndicator(
+                                            color = Color.Black,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "Update Password",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                TextButton(
+                                    onClick = {
+                                        currentMethod = PasswordUpdateMethod.Selection
+                                        currentPassword = ""
+                                        newPassword = ""
+                                        confirmNewPassword = ""
+                                        clearMessages()
+                                    }
+                                ) {
+                                    Text(
+                                        text = "← Back to Options",
+                                        color = Color.Gray,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+
+                            PasswordUpdateMethod.EmailSent -> {
+                                // Email sent confirmation - handled by success dialog
+                                SuccessDialog(
+                                    isVisible = successDialogVisible,
+                                    message = "Email sent Successful",
+                                    onDismissRequest = {
+                                        successDialogVisible = false
+                                        navController.popBackStack()
+                                    }
                                 )
                             }
-                        }
 
-                        PasswordUpdateMethod.EmailSent -> {
-                            // Email sent confirmation - handled by success dialog
-                            SuccessDialog(
-                                isVisible = successDialogVisible,
-                                message = "Email sent Successful",
-                                onDismissRequest = {
-                                    successDialogVisible = false
-                                    navController.popBackStack()
-                                }
-                            )
-                        }
-
-                        PasswordUpdateMethod.Success -> {
-                            // Success - handled by success dialog
-                            SuccessDialog(
-                                isVisible = successDialogVisible,
-                                message = "Update Password Successful",
-                                onDismissRequest = {
-                                    successDialogVisible = false
-                                    navController.popBackStack()
-                                }
-                            )
+                            PasswordUpdateMethod.Success -> {
+                                // Success - handled by success dialog
+                                SuccessDialog(
+                                    isVisible = successDialogVisible,
+                                    message = "Update Password Successful",
+                                    onDismissRequest = {
+                                        successDialogVisible = false
+                                        navController.popBackStack()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
 
             if (currentMethod == PasswordUpdateMethod.Selection) {
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "Choose the method that works best for you. Both options are secure and reliable.",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                item {
+                    Text(
+                        text = "Choose the method that works best for you. Both options are secure and reliable.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
             }
         }
     }
