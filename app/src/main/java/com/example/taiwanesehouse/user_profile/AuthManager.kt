@@ -4,6 +4,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.example.taiwanesehouse.utils.UsernameValidator
 
 class AuthManager {
     private val auth = FirebaseAuth.getInstance()
@@ -25,6 +29,91 @@ class AuthManager {
      */
     fun getCurrentUser(): FirebaseUser? {
         return auth.currentUser
+    }
+
+    /**
+     * Check email availability in real-time
+     */
+    fun checkEmailAvailability(email: String, callback: (Boolean, String) -> Unit) {
+        val trimmed = email.trim().lowercase()
+        if (trimmed.isEmpty()) {
+            callback(false, "")
+            return
+        }
+        if (!ValidationUtils.isValidEmail(trimmed)) {
+            callback(false, "Please enter a valid email address")
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val methods = auth.fetchSignInMethodsForEmail(trimmed).await()
+                val exists = methods.signInMethods?.isNotEmpty() == true
+                if (exists) callback(false, "This email is already registered")
+                else callback(true, "Email is available")
+            } catch (e: Exception) {
+                callback(false, "Unable to check email availability")
+            }
+        }
+    }
+
+    /**
+     * Check phone availability in real-time
+     */
+    fun checkPhoneAvailability(phoneNumber: String, callback: (Boolean, String) -> Unit) {
+        val trimmed = phoneNumber.trim()
+        if (trimmed.isEmpty()) {
+            callback(false, "")
+            return
+        }
+        if (!ValidationUtils.isValidPhoneNumber(trimmed)) {
+            callback(false, "Invalid phone number format")
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val exists = isPhoneNumberRegistered(trimmed)
+                if (exists) callback(false, "This phone number is already registered")
+                else callback(true, "Phone number is available")
+            } catch (e: Exception) {
+                callback(false, "Unable to check phone availability")
+            }
+        }
+    }
+
+    /**
+     * Check username availability (if you want unique usernames)
+     */
+    fun checkUsernameAvailability(username: String, callback: (Boolean, String) -> Unit) {
+        val trimmedUsername = username.trim()
+
+        if (trimmedUsername.isEmpty()) {
+            callback(false, "")
+            return
+        }
+
+        // Basic validation first
+        val validation = UsernameValidator.validateUsername(trimmedUsername)
+        if (!validation.isValid) {
+            callback(false, validation.errorMessage)
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val querySnapshot = firestore.collection("users")
+                    .whereEqualTo("username", trimmedUsername)
+                    .limit(1)
+                    .get()
+                    .await()
+                val exists = !querySnapshot.isEmpty
+                if (exists) callback(false, "This username is already taken")
+                else callback(true, "Username is available")
+            } catch (e: Exception) {
+                callback(false, "Unable to check username availability")
+            }
+        }
     }
 
     /**

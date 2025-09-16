@@ -7,6 +7,18 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
+    /**
+     * Check if phone number exists (returns count)
+     */
+    @Query("SELECT COUNT(*) FROM users WHERE phoneNumber = :phoneNumber")
+    suspend fun checkPhoneExists(phoneNumber: String): Int
+
+    /**
+     * Check if username exists (returns count) - if you want username uniqueness
+     */
+    @Query("SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(:username)")
+    suspend fun checkUsernameExists(username: String): Int
+
     @Query("SELECT * FROM users WHERE uid = :uid LIMIT 1")
     suspend fun getUserById(uid: String): UserEntity?
 

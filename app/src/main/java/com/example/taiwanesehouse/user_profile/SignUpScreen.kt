@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -16,6 +17,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +28,7 @@ import com.example.taiwanesehouse.enumclass.Screen
 import com.example.taiwanesehouse.ui.components.*
 import com.example.taiwanesehouse.viewmodel.AuthViewModel
 import com.example.taiwanesehouse.utils.UsernameValidator  // Import the shared utility
+import kotlinx.coroutines.delay
 
 @Composable
 fun SignUpScreen(
@@ -70,6 +73,16 @@ fun SignUpScreen(
     val isPasswordValid = viewModel.validatePassword(password)
     val passwordsMatch = viewModel.validatePasswordMatch(password, confirmPassword)
 
+    // Email validation
+    var emailValidationMessage by rememberSaveable { mutableStateOf("") }
+    var emailAvailabilityChecked by rememberSaveable { mutableStateOf(false) }
+    var isCheckingEmail by rememberSaveable { mutableStateOf(false) }
+
+    // Phone validation
+    var phoneValidationMessage by rememberSaveable { mutableStateOf("") }
+    var phoneAvailabilityChecked by rememberSaveable { mutableStateOf(false) }
+    var isCheckingPhone by rememberSaveable { mutableStateOf(false) }
+
     // Username validation using shared utility
     LaunchedEffect(username) {
         if (username.trim().isNotEmpty()) {
@@ -81,6 +94,57 @@ fun SignUpScreen(
             }
         } else {
             usernameValidationMessage = ""
+        }
+    }
+// Email validation with real-time availability checking
+    LaunchedEffect(email) {
+        if (email.trim().isNotEmpty() && viewModel.validateEmail(email)) {
+            isCheckingEmail = true
+            emailAvailabilityChecked = false
+
+            // Debounce the check to avoid too many API calls
+            delay(500)
+
+            viewModel.checkEmailAvailability(email) { isAvailable, message ->
+                emailValidationMessage = message
+                emailAvailabilityChecked = true
+                isCheckingEmail = false
+            }
+        } else if (email.trim().isEmpty()) {
+            emailValidationMessage = ""
+            emailAvailabilityChecked = false
+            isCheckingEmail = false
+        } else {
+            emailValidationMessage = "Please enter a valid email address"
+            emailAvailabilityChecked = false
+            isCheckingEmail = false
+        }
+    }
+
+    // Phone validation with real-time availability checking
+    LaunchedEffect(phoneNumber) {
+        if (phoneNumber.trim().isNotEmpty()) {
+            if (viewModel.validatePhone(phoneNumber)) {
+                isCheckingPhone = true
+                phoneAvailabilityChecked = false
+
+                // Debounce the check
+                delay(500)
+
+                viewModel.checkPhoneAvailability(phoneNumber) { isAvailable, message ->
+                    phoneValidationMessage = message
+                    phoneAvailabilityChecked = true
+                    isCheckingPhone = false
+                }
+            } else {
+                phoneValidationMessage = "Invalid phone number format"
+                phoneAvailabilityChecked = false
+                isCheckingPhone = false
+            }
+        } else {
+            phoneValidationMessage = ""
+            phoneAvailabilityChecked = false
+            isCheckingPhone = false
         }
     }
 
@@ -242,29 +306,103 @@ fun SignUpScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             // Email field (your existing component)
-                            EmailField(
+                            OutlinedTextField(
                                 value = email,
                                 onValueChange = {
                                     email = it
                                     viewModel.clearError()
+                                    // Reset states when user types
+                                    emailAvailabilityChecked = false
+                                    emailValidationMessage = ""
                                 },
-                                isValid = isEmailValid,
-                                isRequired = true,
-                                modifier = Modifier.fillMaxWidth()
+                                label = { Text("Email Address *") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                                enabled = !authState.isLoading,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                placeholder = { Text("example@email.com") },
+                                isError = emailValidationMessage.isNotEmpty() &&
+                                        !emailValidationMessage.contains("available", ignoreCase = true),
+                                trailingIcon = {
+                                    when {
+                                        isCheckingEmail -> {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                        emailAvailabilityChecked && emailValidationMessage.contains("available", ignoreCase = true) -> {
+                                            Text("✅", fontSize = 16.sp)
+                                        }
+                                        emailValidationMessage.isNotEmpty() && !emailValidationMessage.contains("available", ignoreCase = true) -> {
+                                            Text("❌", fontSize = 16.sp)
+                                        }
+                                        else -> null
+                                    }
+                                },
+                                supportingText = {
+                                    if (emailValidationMessage.isNotEmpty()) {
+                                        Text(
+                                            text = emailValidationMessage,
+                                            color = if (emailValidationMessage.contains("available", ignoreCase = true))
+                                                Color(0xFF4CAF50) else Color.Red,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Phone Number (Optional) - your existing component
-                            PhoneField(
+                            // Phone Number (Optional) with availability check
+                            OutlinedTextField(
                                 value = phoneNumber,
                                 onValueChange = {
                                     phoneNumber = it
                                     viewModel.clearError()
+                                    // Reset states when user types
+                                    phoneAvailabilityChecked = false
+                                    phoneValidationMessage = ""
                                 },
-                                isValid = isPhoneValid,
-                                isOptional = true,
-                                modifier = Modifier.fillMaxWidth()
+                                label = { Text("Phone Number (optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                                enabled = !authState.isLoading,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                placeholder = { Text("+60123456789") },
+                                isError = phoneValidationMessage.isNotEmpty() &&
+                                        !phoneValidationMessage.contains("available", ignoreCase = true),
+                                trailingIcon = {
+                                    when {
+                                        isCheckingPhone -> {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                        phoneAvailabilityChecked && phoneValidationMessage.contains("available", ignoreCase = true) -> {
+                                            Text("✅", fontSize = 16.sp)
+                                        }
+                                        phoneValidationMessage.isNotEmpty() && !phoneValidationMessage.contains("available", ignoreCase = true) -> {
+                                            Text("❌", fontSize = 16.sp)
+                                        }
+                                        else -> null
+                                    }
+                                },
+                                supportingText = {
+                                    if (phoneValidationMessage.isNotEmpty()) {
+                                        Text(
+                                            text = phoneValidationMessage,
+                                            color = if (phoneValidationMessage.contains("available", ignoreCase = true))
+                                                Color(0xFF4CAF50) else Color.Red,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
