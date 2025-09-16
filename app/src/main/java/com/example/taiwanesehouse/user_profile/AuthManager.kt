@@ -1,4 +1,4 @@
-package com.example.taiwanesehouse
+package com.example.taiwanesehouse.user_profile
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser

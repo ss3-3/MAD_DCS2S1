@@ -1,4 +1,4 @@
-package com.example.taiwanesehouse
+package com.example.taiwanesehouse.user_profile
 
 import android.app.Activity
 import android.util.Log

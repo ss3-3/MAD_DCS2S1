@@ -1,162 +1,52 @@
+// Updated MenuScreen with proper AndroidViewModel usage
 package com.example.taiwanesehouse
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-
-// Data class for food items
-data class FoodItem(
-    val id: String,
-    val name: String,
-    val description: String,
-    val price: Double,
-    val imageRes: Int
-)
+import com.example.taiwanesehouse.database.entities.FoodItemEntity
+import com.example.taiwanesehouse.FirebaseCartManager
+import com.example.taiwanesehouse.enumclass.Screen
+import com.example.taiwanesehouse.viewmodel.FoodItemViewModel
 
 @Composable
-fun RiceMenu(navController: NavController) {
-    // List of rice items
-    val riceItems = listOf(
-        FoodItem("R1", "Signature Braised Pork Rice", "Japanese Pearl Rice - Signature Braised Pork - Fried Egg - Side Dish (Daily) - Sour Chili", 15.90, R.drawable.signature_braised_pork_rice),
-        FoodItem("R2", "High CP Salted Chicken Rice", "Japanese Pearl Rice - Minced Pork - Salted Fried Chicken - Fried Egg - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.signature_braised_pork_rice),
-        FoodItem("R3", "Meatball & Sausage Minced Pork Rice", "Japanese Pearl Rice - Minced Pork - Taiwan Sausage - Pork Meatball - Fried Egg - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.meatball_and_sausage_minced_pork_rice),
-        FoodItem("R4", "House Crispy Chicken Chop Rice", "Japanese Pearl Rice - Taiwan Style Chicken Chop - Fried Egg - Side Dish (Daily) - Sour Chili", 20.90, R.drawable.house_crispy_chicken_chop_rice),
-        FoodItem("R5", "Taiwanese Pork Chop Rice", "Jasmine Pearl Rice - Taiwanese Pork Chop - First Egg - Taiwanese Pickled Vegetable - Sour Chili", 21.90, R.drawable.taiwanese_belly_pork_chop_rice),
-        FoodItem("R6", "Khong Bah Peng", "Jasmine Pearl Rice - Stewed Pork Belly - Fried Egg - Side Dish (Daily) - Sour Chili", 21.90, R.drawable.khong_bah_peng),
-        FoodItem("R7", "Three Cup Chicken Rice", "Japanese Pearl Rice - 3 Cup Chicken - Stewed Egg (Half) - Side Dish (Daily) - Sour Chili", 25.90, R.drawable.three_cup_chicken_rice)
-    )
+fun CategoryMenu(category: String, navController: NavController, viewModel: FoodItemViewModel) {
+    val items by viewModel.getFoodItemsByCategory(category).collectAsState(initial = emptyList())
 
     LazyColumn {
-        items(riceItems) { item ->
-            FoodCard(item = item, onAddClick = {}, navController = navController)
+        items(items) { item ->
+            DatabaseFoodCard(item = item, onAddClick = {}, navController = navController)
         }
     }
 }
 
 @Composable
-fun NoodlesMenu(navController: NavController) {
-    // list of noodle items
-    val noodleItems = listOf(
-        FoodItem("N1", "Signature Braised Pork QQ Noodle", "Handmade Noodle - Signature Braised Pork - Fried Egg - Side Dish (Daily) - Sour Chili", 15.90, R.drawable.signature_braised_pork_qq_noodle),
-        FoodItem("N2", "High CP Salted Chicken QQ Noodle", "Handmade Noodle - Minced Pork - Salted Fried Chicken - Fried Egg - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.high_cp_salted_chicken_qq_noodle),
-        FoodItem("N3", "Meatball & Sausage Minced Pork QQ Noodle", "Handmade Noodle - Minced Pork - Taiwan Sausage - Pork Meatball - Stewed Egg (Half) - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.meatball_and_sausage_minced_pork_qq_noodle),
-        FoodItem("N4", "House Crispy Chicken Chop QQ Noodle", "Handmade Noodle - Taiwan Style Chicken Chop - Fried Egg - Side Dish (Daily) - Sour Chili", 19.90, R.drawable.house_chicken_chop_qq_noodle),
-        FoodItem("N5", "Taiwanese Belly Pork Chop QQ Noodle", "Handmade Noodle - Pork Chop - Fried Egg - Side Dish (Daily) - Sour Chili", 20.90, R.drawable.taiwanese_belly_pork_chop_qq_noodle),
-        FoodItem("N6", "Gozhabi Stewed Belly QQ Noodle", "Handmade Noodle - Stewed Pork Belly - Fried Egg - Side Dish (Daily) - Sour Chili", 20.90, R.drawable.gozhabi_stewed_belly_qq_noodle),
-        FoodItem("N7", "Twice Egg Scallion Noodle", "Handmade Noodle - Twice Wallet Egg - Side Dish (Daily) - Sour Chili", 11.90, R.drawable.twice_egg_scallion_noodle)
-    )
-
-    LazyColumn {
-        items(noodleItems) { item ->
-            FoodCard(item = item, onAddClick = {}, navController = navController)
-        }
-    }
-}
-
-@Composable
-fun NotTooFullMenu(navController: NavController) {
-    val lightItems = listOf(
-        FoodItem("E1", "Yam Floss Egg Crepe", "Yam Paste - Chicken Floss - Egg - Crepe", 8.90, R.drawable.yam_floss_egg_crepe),
-        FoodItem("E2", "Cheese Floss Egg Crepe", "Cheese - Chicken Floss - Egg - Crepe - Mayonnaise - Sweet Chili Sauce", 8.90, R.drawable.cheese_floss_egg_crepe),
-        FoodItem("E3", "Cheese Ham Egg Crepe", "Chicken Ham, Cheese - Egg - Crepe - Mayonnaise - Sweet Chili Sauce", 8.90, R.drawable.cheese_ham_egg_crepe),
-        FoodItem("E4", "Double Cheese Egg Scallion Sandwich", "Double Cheese - Egg - Scallion Sandwich - Salad - Sweet Chili Sauce", 12.90, R.drawable.double_cheese_egg_scallion_sandwich),
-        FoodItem("E5", "Floss Egg Scallion Sandwich", "Chicken Floss - Egg - Scallion Sandwich - Salad - Sweet Chili Sauce", 12.90, R.drawable.floss_egg_scallion_sandwich),
-        FoodItem("E6", "Ham Egg Scallion Sandwich", "Chicken Ham - Egg - Scallion Sandwich - Salad - Sweet Chili Sauce", 12.90, R.drawable.ham_egg_scallion_sandwich)
-    )
-
-    LazyColumn {
-        items(lightItems) { item ->
-            FoodCard(item = item, onAddClick = {}, navController = navController)
-        }
-    }
-}
-
-@Composable
-fun SnackMenu(navController: NavController) {
-    val snackItems = listOf(
-        FoodItem("S1", "Garlic Slice Taiwanese Sausage", "Taiwan Sausage 2 Pcs", 8.90, R.drawable.garlic_slice_taiwanese_sausage),
-        FoodItem("S2", "Tempura Oyster Mushroom", "Fried Oyster Mushroom (Spicy / Original)", 9.90, R.drawable.tempura_oyster_mushroom),
-        FoodItem("S3", "Sweet Plum Potato Fries", "Fired Sweet Orange Potato", 9.90, R.drawable.sweet_plum_potato_fried),
-        FoodItem("S4", "High CP Salted Chicken", "Fried Salted Chicken (Spicy / Original)", 12.90, R.drawable.high_cp_salted_chicken),
-        FoodItem("S5", "Taiwanese Belly Pork Chop", "Fried Juicy Pork Chop (Spicy / Original)", 14.90, R.drawable.taiwanese_belly_pork_chop),
-        FoodItem("S6", "House Crispy Chicken Chop", "Fried Juicy Chicken Chop (Spicy / Original)", 13.90, R.drawable.house_crispy_chicken_chop),
-        FoodItem("S7", "Sweet Not Spicy", "Tempura (No Spicy)", 12.90, R.drawable.sweet_not_spicy)
-    )
-
-    LazyColumn {
-        items(snackItems) { item ->
-            FoodCard(item = item, onAddClick = {}, navController = navController)
-        }
-    }
-}
-
-@Composable
-fun DrinkMenu(navController: NavController) {
-    val drinkItems = listOf(
-        FoodItem("D1", "Aloe Yakult Tea", "", 8.90, R.drawable.aloe_yakult_tea),
-        FoodItem("D2", "TW Aiyu Jelly", "", 7.90, R.drawable.tw_aiyu_tea),
-        FoodItem("D3", "Dark Aroma Lemon Tea", "", 5.90, R.drawable.dark_aroma_lemon_tea),
-        FoodItem("D4", "Original Lemon Tea", "", 5.90, R.drawable.original_lemon_tea),
-        FoodItem("D5", "Earl Grey Milk Tea", "", 7.90, R.drawable.earl_grey_milk_tea),
-        FoodItem("D6", "Pearl Earl Milk Tea", "", 8.90, R.drawable.pearl_earl_milk_tea),
-        FoodItem("D7", "White Peach Milk Tea", "", 7.90, R.drawable.white_peach_milk_tea),
-        FoodItem("D8", "Jasmine Milk Tea", "", 7.90, R.drawable.jasmine_milk_tea)
-    )
-
-    LazyColumn {
-        items(drinkItems) { item ->
-            FoodCard(item = item, onAddClick = {}, navController = navController)
-        }
-    }
-}
-
-@Composable
-fun FoodCard(item: FoodItem, onAddClick: () -> Unit, navController: NavController) {
+fun DatabaseFoodCard(item: FoodItemEntity, onAddClick: () -> Unit, navController: NavController) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -207,7 +97,7 @@ fun FoodCard(item: FoodItem, onAddClick: () -> Unit, navController: NavControlle
 
                 Row {
                     Text(
-                        text = "%.2f".format(item.price),
+                        text = "RM %.2f".format(item.price),
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
@@ -242,48 +132,24 @@ fun FoodCard(item: FoodItem, onAddClick: () -> Unit, navController: NavControlle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuScreen(navController: NavController) {
+fun MenuScreenWithDatabase(navController: NavController) {
+    // Get the AndroidViewModel using viewModel() composable
+    // This will automatically handle the Application context
+    val viewModel: FoodItemViewModel = viewModel()
+
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Rice", "Noodles", "Not Too Full", "Snacks", "Drinks")
     var searchText by remember { mutableStateOf("") }
-    val cartItemCount by remember { mutableIntStateOf(0) }
-    val allItems = listOf(
-        FoodItem("R1", "Signature Braised Pork Rice", "Japanese Pearl Rice - Signature Braised Pork - Fried Egg - Side Dish (Daily) - Sour Chili", 15.90, R.drawable.signature_braised_pork_rice),
-        FoodItem("R2", "High CP Salted Chicken Rice", "Japanese Pearl Rice - Minced Pork - Salted Fried Chicken - Fried Egg - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.signature_braised_pork_rice),
-        FoodItem("R3", "Meatball & Sausage Minced Pork Rice", "Japanese Pearl Rice - Minced Pork - Taiwan Sausage - Pork Meatball - Fried Egg - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.meatball_and_sausage_minced_pork_rice),
-        FoodItem("R4", "House Crispy Chicken Chop Rice", "Japanese Pearl Rice - Taiwan Style Chicken Chop - Fried Egg - Side Dish (Daily) - Sour Chili", 20.90, R.drawable.house_crispy_chicken_chop_rice),
-        FoodItem("R5", "Taiwanese Pork Chop Rice", "Jasmine Pearl Rice - Taiwanese Pork Chop - First Egg - Taiwanese Pickled Vegetable - Sour Chili", 21.90, R.drawable.taiwanese_belly_pork_chop_rice),
-        FoodItem("R6", "Khong Bah Peng", "Jasmine Pearl Rice - Stewed Pork Belly - Fried Egg - Side Dish (Daily) - Sour Chili", 21.90, R.drawable.khong_bah_peng),
-        FoodItem("R7", "Three Cup Chicken Rice", "Japanese Pearl Rice - 3 Cup Chicken - Stewed Egg (Half) - Side Dish (Daily) - Sour Chili", 25.90, R.drawable.three_cup_chicken_rice),
-        FoodItem("N1", "Signature Braised Pork QQ Noodle", "Handmade Noodle - Signature Braised Pork - Fried Egg - Side Dish (Daily) - Sour Chili", 15.90, R.drawable.signature_braised_pork_qq_noodle),
-        FoodItem("N2", "High CP Salted Chicken QQ Noodle", "Handmade Noodle - Minced Pork - Salted Fried Chicken - Fried Egg - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.high_cp_salted_chicken_qq_noodle),
-        FoodItem("N3", "Meatball & Sausage Minced Pork QQ Noodle", "Handmade Noodle - Minced Pork - Taiwan Sausage - Pork Meatball - Stewed Egg (Half) - Side Dish (Daily) - Sour Chili", 17.90, R.drawable.meatball_and_sausage_minced_pork_qq_noodle),
-        FoodItem("N4", "House Crispy Chicken Chop QQ Noodle", "Handmade Noodle - Taiwan Style Chicken Chop - Fried Egg - Side Dish (Daily) - Sour Chili", 19.90, R.drawable.house_chicken_chop_qq_noodle),
-        FoodItem("N5", "Taiwanese Belly Pork Chop QQ Noodle", "Handmade Noodle - Pork Chop - Fried Egg - Side Dish (Daily) - Sour Chili", 20.90, R.drawable.taiwanese_belly_pork_chop_qq_noodle),
-        FoodItem("N6", "Gozhabi Stewed Belly QQ Noodle", "Handmade Noodle - Stewed Pork Belly - Fried Egg - Side Dish (Daily) - Sour Chili", 20.90, R.drawable.gozhabi_stewed_belly_qq_noodle),
-        FoodItem("N7", "Twice Egg Scallion Noodle", "Handmade Noodle - Twice Wallet Egg - Side Dish (Daily) - Sour Chili", 11.90, R.drawable.twice_egg_scallion_noodle),
-        FoodItem("E1", "Yam Floss Egg Crepe", "Yam Paste - Chicken Floss - Egg - Crepe", 8.90, R.drawable.yam_floss_egg_crepe),
-        FoodItem("E2", "Cheese Floss Egg Crepe", "Cheese - Chicken Floss - Egg - Crepe - Mayonnaise - Sweet Chili Sauce", 8.90, R.drawable.cheese_floss_egg_crepe),
-        FoodItem("E3", "Cheese Ham Egg Crepe", "Chicken Ham, Cheese - Egg - Crepe - Mayonnaise - Sweet Chili Sauce", 8.90, R.drawable.cheese_ham_egg_crepe),
-        FoodItem("E4", "Double Cheese Egg Scallion Sandwich", "Double Cheese - Egg - Scallion Sandwich - Salad - Sweet Chili Sauce", 12.90, R.drawable.double_cheese_egg_scallion_sandwich),
-        FoodItem("E5", "Floss Egg Scallion Sandwich", "Chicken Floss - Egg - Scallion Sandwich - Salad - Sweet Chili Sauce", 12.90, R.drawable.floss_egg_scallion_sandwich),
-        FoodItem("E6", "Ham Egg Scallion Sandwich", "Chicken Ham - Egg - Scallion Sandwich - Salad - Sweet Chili Sauce", 12.90, R.drawable.ham_egg_scallion_sandwich),
-        FoodItem("S1", "Garlic Slice Taiwanese Sausage", "Taiwan Sausage 2 Pcs", 8.90, R.drawable.garlic_slice_taiwanese_sausage),
-        FoodItem("S2", "Tempura Oyster Mushroom", "Fried Oyster Mushroom (Spicy / Original)", 9.90, R.drawable.tempura_oyster_mushroom),
-        FoodItem("S3", "Sweet Plum Potato Fries", "Fired Sweet Orange Potato", 9.90, R.drawable.sweet_plum_potato_fried),
-        FoodItem("S4", "High CP Salted Chicken", "Fried Salted Chicken (Spicy / Original)", 12.90, R.drawable.high_cp_salted_chicken),
-        FoodItem("S5", "Taiwanese Belly Pork Chop", "Fried Juicy Pork Chop (Spicy / Original)", 14.90, R.drawable.taiwanese_belly_pork_chop),
-        FoodItem("S6", "House Crispy Chicken Chop", "Fried Juicy Chicken Chop (Spicy / Original)", 13.90, R.drawable.house_crispy_chicken_chop),
-        FoodItem("S7", "Sweet Not Spicy", "Tempura (No Spicy)", 12.90, R.drawable.sweet_not_spicy),
-        FoodItem("D1", "Aloe Yakult Tea", "", 8.90, R.drawable.aloe_yakult_tea),
-        FoodItem("D2", "TW Aiyu Jelly", "", 7.90, R.drawable.tw_aiyu_tea),
-        FoodItem("D3", "Dark Aroma Lemon Tea", "", 5.90, R.drawable.dark_aroma_lemon_tea),
-        FoodItem("D4", "Original Lemon Tea", "", 5.90, R.drawable.original_lemon_tea),
-        FoodItem("D5", "Earl Grey Milk Tea", "", 7.90, R.drawable.earl_grey_milk_tea),
-        FoodItem("D6", "Pearl Earl Milk Tea", "", 8.90, R.drawable.pearl_earl_milk_tea),
-        FoodItem("D7", "White Peach Milk Tea", "", 7.90, R.drawable.white_peach_milk_tea),
-        FoodItem("D8", "Jasmine Milk Tea", "", 7.90, R.drawable.jasmine_milk_tea)
-    )
+    val cartManager = remember { FirebaseCartManager() }
+    val cartItems by cartManager.cartItems.collectAsState()
+    val cartItemCount = cartItems.sumOf { it.foodQuantity }
+
+    // Collect search results - only search when text is not empty
+    val searchResults by if (searchText.isNotEmpty()) {
+        viewModel.searchFoodItems(searchText).collectAsState(initial = emptyList())
+    } else {
+        remember { mutableStateOf(emptyList<FoodItemEntity>()) }
+    }
 
     Scaffold(
         topBar = {
@@ -298,19 +164,9 @@ fun MenuScreen(navController: NavController) {
                         color = Color.Black
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.Black,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                },
                 actions = {
                     Box {
-                        IconButton(onClick = { navController.navigate("cart")}) {
+                        IconButton(onClick = { navController.navigate(Screen.Cart.name)}) {
                             Icon(
                                 imageVector = Icons.Filled.ShoppingCart,
                                 contentDescription = "Cart",
@@ -321,10 +177,18 @@ fun MenuScreen(navController: NavController) {
                         if (cartItemCount > 0) {
                             Box(
                                 modifier = Modifier
-                                    .size(10.dp)
+                                    .size(18.dp)
                                     .background(Color.Red, CircleShape)
-                                    .align(Alignment.TopEnd)
-                            )
+                                    .align(Alignment.TopEnd),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = cartItemCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 },
@@ -340,6 +204,7 @@ fun MenuScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.White)
                 .padding(innerPadding)
                 .padding(top = 12.dp)
         ) {
@@ -377,12 +242,15 @@ fun MenuScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(10.dp))
 
             if (searchText.isEmpty()) {
+                // Category tabs when not searching
                 ScrollableTabRow(
                     selectedTabIndex = selectedTabIndex,
                     edgePadding = 0.dp,
                     containerColor = Color.White,
                     indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]), color = Color(0xFFFFC107)
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                            color = Color(0xFFFFC107)
                         )
                     }
                 ) {
@@ -423,16 +291,14 @@ fun MenuScreen(navController: NavController) {
                     color = Color.Black
                 )
 
-                // Content
-                when (selectedTabIndex) {
-                    0 -> RiceMenu(navController)
-                    1 -> NoodlesMenu(navController)
-                    2 -> NotTooFullMenu(navController)
-                    3 -> SnackMenu(navController)
-                    4 -> DrinkMenu(navController)
-                }
+                // Content from database by category
+                CategoryMenu(
+                    category = tabs[selectedTabIndex],
+                    navController = navController,
+                    viewModel = viewModel
+                )
             } else {
-                // display search result
+                // Display search results
                 Text(
                     text = "Search Results for \"$searchText\"",
                     style = MaterialTheme.typography.titleMedium.copy(
@@ -443,17 +309,25 @@ fun MenuScreen(navController: NavController) {
                     color = Color.Black
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // filtered result
-                val filteredItems = allItems.filter {
-                    it.name.contains(searchText, ignoreCase = true) ||
-                            it.description.contains(searchText, ignoreCase = true)
-                }
-
-                LazyColumn {
-                    items(filteredItems) { item ->
-                        FoodCard(item = item, onAddClick = { /* TODO */ }, navController = navController)
+                if (searchResults.isEmpty()) {
+                    // Show "No results found" message
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No items found matching \"$searchText\"",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    LazyColumn {
+                        items(searchResults) { item ->
+                            DatabaseFoodCard(item = item, onAddClick = {}, navController = navController)
+                        }
                     }
                 }
             }

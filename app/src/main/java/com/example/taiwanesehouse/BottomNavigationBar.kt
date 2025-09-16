@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.taiwanesehouse.enumclass.Screen
 
 @Composable
 fun BottomNavigationBar(navController: NavController) {
@@ -41,15 +42,15 @@ fun BottomNavigationBar(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .clickable {
-                    navController.navigate(Screen.Cart.name) {
-                        popUpTo(Screen.Cart.name) { inclusive = true }
+                    navController.navigate(Screen.Order.name) {
+                        popUpTo(Screen.Order.name) { inclusive = true }
                         launchSingleTop = true
                     }
                 }
                 .padding(8.dp)
         ) {
-            Text("🛒", fontSize = 28.sp)
-            Text("Cart", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            Text("\uD83E\uDDFE", fontSize = 28.sp)
+            Text("Order", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         }
 
         Column(
