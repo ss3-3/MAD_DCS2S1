@@ -18,13 +18,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.taiwanesehouse.R
 import com.example.taiwanesehouse.enumclass.Screen
+import com.example.taiwanesehouse.viewmodel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @Composable
-fun LogoutScreen(navController: NavController) {
+fun LogoutScreen(
+    navController: NavController,
+    viewModel: AuthViewModel = viewModel()
+) {
     val logoImage = painterResource(R.drawable.taiwanesehouselogo)
     val coverImage = painterResource(R.drawable.coverpage)
 
@@ -32,45 +37,82 @@ fun LogoutScreen(navController: NavController) {
     var isLoading by rememberSaveable { mutableStateOf(false) }
     var showConfirmDialog by rememberSaveable { mutableStateOf(true) }
     var logoutComplete by rememberSaveable { mutableStateOf(false) }
+    var clearSavedCredentials by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val authState by viewModel.authState.collectAsState()
 
     // Firebase instances
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
 
-    // Logout function
-    fun performLogout() {
-        isLoading = true
-        scope.launch {
-            try {
-                auth.signOut()
-                logoutComplete = true
-                snackbarHostState.showSnackbar("Logged out successfully!")
-
-                // Small delay for better UX
-                kotlinx.coroutines.delay(1000)
-
-                // Navigate to login and clear back stack
-                navController.navigate(Screen.Login.name) {
-                    popUpTo(0) { inclusive = true }
-                }
-            } catch (e: Exception) {
-                snackbarHostState.showSnackbar("Logout failed: ${e.localizedMessage}")
-            } finally {
-                isLoading = false
-            }
-        }
-    }
-
-    // Auto-logout if no user is signed in
+    // Auto-redirect if already logged out
     LaunchedEffect(currentUser) {
-        if (currentUser == null) {
+        if (currentUser == null && !logoutComplete) {
+            // User is already logged out, navigate to login immediately
             navController.navigate(Screen.Login.name) {
                 popUpTo(0) { inclusive = true }
             }
         }
+    }
+
+    // Logout function with better error handling
+    fun performLogout() {
+        scope.launch {
+            try {
+                isLoading = true
+                showConfirmDialog = false
+
+                // Use ViewModel's logout function to handle credentials
+                viewModel.logout(clearRememberedCredentials = clearSavedCredentials)
+
+                // Sign out from Firebase
+                auth.signOut()
+
+                // Mark logout as complete
+                logoutComplete = true
+
+                // Show success message
+                val message = if (clearSavedCredentials) {
+                    "Logged out successfully! Saved credentials cleared."
+                } else {
+                    "Logged out successfully!"
+                }
+                snackbarHostState.showSnackbar(message)
+
+                // Wait for snackbar to show
+                kotlinx.coroutines.delay(1500)
+
+                // Navigate to login and clear entire back stack
+                navController.navigate(Screen.Login.name) {
+                    popUpTo(0) { inclusive = true }
+                }
+            } catch (e: Exception) {
+                // Handle any logout errors
+                snackbarHostState.showSnackbar("Logout failed: ${e.localizedMessage}")
+                isLoading = false
+                showConfirmDialog = true // Reset to allow retry
+                logoutComplete = false
+            }
+        }
+    }
+
+    // If user is already null and logout is complete, show loading while navigating
+    if (currentUser == null && logoutComplete) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = Color(0xFFFFC107))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Redirecting to login...", color = Color.Gray)
+            }
+        }
+        return
     }
 
     Scaffold(
@@ -165,7 +207,11 @@ fun LogoutScreen(navController: NavController) {
                                         )
 
                                         Text(
-                                            text = "You have been successfully logged out.\nThank you for using Taiwanese House!",
+                                            text = if (clearSavedCredentials) {
+                                                "You have been logged out and saved credentials cleared.\nRedirecting to login..."
+                                            } else {
+                                                "You have been successfully logged out.\nRedirecting to login..."
+                                            },
                                             fontSize = 14.sp,
                                             color = Color.Gray,
                                             textAlign = TextAlign.Center,
@@ -173,12 +219,10 @@ fun LogoutScreen(navController: NavController) {
                                             modifier = Modifier.padding(bottom = 20.dp)
                                         )
 
-                                        if (isLoading) {
-                                            CircularProgressIndicator(
-                                                color = Color(0xFFFFD700),
-                                                modifier = Modifier.size(32.dp)
-                                            )
-                                        }
+                                        CircularProgressIndicator(
+                                            color = Color(0xFFFFD700),
+                                            modifier = Modifier.size(32.dp)
+                                        )
                                     }
                                 }
 
@@ -241,12 +285,59 @@ fun LogoutScreen(navController: NavController) {
                                         }
                                     }
 
+                                    // Remember Me options (if credentials are saved)
+                                    if (authState.savedCredential.isNotEmpty()) {
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(bottom = 16.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = Color(0xFFFFF3CD)
+                                            ),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(16.dp)
+                                            ) {
+                                                Text(
+                                                    text = "💡 Remember Me Settings",
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = Color(0xFF856404),
+                                                    modifier = Modifier.padding(bottom = 8.dp)
+                                                )
+
+                                                Text(
+                                                    text = "You have saved credentials for: ${authState.savedCredential}",
+                                                    fontSize = 12.sp,
+                                                    color = Color(0xFF856404),
+                                                    modifier = Modifier.padding(bottom = 12.dp)
+                                                )
+
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Checkbox(
+                                                        checked = clearSavedCredentials,
+                                                        onCheckedChange = { clearSavedCredentials = it },
+                                                        colors = CheckboxDefaults.colors(
+                                                            checkedColor = Color(0xFFFF6B6B)
+                                                        )
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = "Also clear saved login credentials",
+                                                        fontSize = 12.sp,
+                                                        color = Color(0xFF856404)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     // Logout button
                                     Button(
-                                        onClick = {
-                                            showConfirmDialog = false
-                                            performLogout()
-                                        },
+                                        onClick = { performLogout() },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(50.dp),
@@ -264,7 +355,7 @@ fun LogoutScreen(navController: NavController) {
                                             )
                                         } else {
                                             Text(
-                                                text = "Yes, Logout",
+                                                text = if (clearSavedCredentials) "Yes, Logout & Clear Data" else "Yes, Logout",
                                                 fontSize = 16.sp,
                                                 fontWeight = FontWeight.Bold
                                             )

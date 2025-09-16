@@ -7,5 +7,9 @@ data class AuthState(
     val user: UserEntity? = null,
     val isLoggedIn: Boolean = false,
     val errorMessage: String = "",
-    val successMessage: String = ""
+    val successMessage: String = "",
+    val savedEmail: String = "",
+    val savedPhone: String = "",
+    val savedCredential: String = "", // Combined field for UI convenience
+    val rememberMe: Boolean = false
 )

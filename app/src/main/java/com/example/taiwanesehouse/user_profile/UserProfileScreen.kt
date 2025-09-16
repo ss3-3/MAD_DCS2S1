@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
@@ -39,10 +38,7 @@ import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserProfileScreen(
-    navController: NavController,
-    onBackClick: () -> Unit = {}
-) {
+fun UserProfileScreen(navController: NavController) {
     val context = LocalContext.current
 
     Scaffold(
@@ -79,22 +75,6 @@ fun UserProfileScreen(
 
             item {
                 ProfileOptionItem(
-                    icon = Icons.Default.Edit,
-                    title = "Edit User Name",
-                    onClick = {navController.navigate(UserProfile.EditName.name)}
-                )
-            }
-
-            item {
-                ProfileOptionItem(
-                    icon = Icons.Default.Lock,
-                    title = "Password Update",
-                    onClick = {navController.navigate(UserProfile.PasswordUpdate.name)}
-                )
-            }
-
-            item {
-                ProfileOptionItem(
                     icon = Icons.Default.Info,
                     title = "Verify Email",
                     onClick = { navController.navigate("VerifyEmail") }
@@ -104,8 +84,24 @@ fun UserProfileScreen(
             item {
                 ProfileOptionItem(
                     icon = Icons.Default.Edit,
+                    title = "Edit User Name",
+                    onClick = {navController.navigate(UserProfile.EditName.name)}
+                )
+            }
+
+            item {
+                ProfileOptionItem(
+                    icon = Icons.Default.Edit,
                     title = "Change Email Address",
                     onClick = { navController.navigate("ChangeEmail") }
+                )
+            }
+
+            item {
+                ProfileOptionItem(
+                    icon = Icons.Default.Lock,
+                    title = "Password Update",
+                    onClick = {navController.navigate(UserProfile.PasswordUpdate.name)}
                 )
             }
 

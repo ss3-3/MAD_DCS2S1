@@ -46,9 +46,7 @@ fun CartScreen(
 
     // Calculate totals
     val subtotal = cartItems.sumOf { it.getTotalPrice() }
-    val coinDiscount = 0.0
     val finalTotal = subtotal
-    val maxCoinsUsable = 0
 
     // Check authentication
     LaunchedEffect(Unit) {
@@ -356,50 +354,6 @@ fun CartItemCard(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun CoinUsageCard(
-    memberCoins: Int,
-    coinsToUse: Int,
-    maxCoinsUsable: Int,
-    onCoinsChange: (Int) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "🪙 Member Coins",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "Available: $memberCoins coins | Using: $coinsToUse coins",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
-            )
-
-            if (maxCoinsUsable > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Slider(
-                    value = coinsToUse.toFloat(),
-                    onValueChange = { onCoinsChange(it.toInt()) },
-                    valueRange = 0f..maxCoinsUsable.toFloat(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFFFC107),
-                        activeTrackColor = Color(0xFFFFC107)
-                    )
-                )
             }
         }
     }

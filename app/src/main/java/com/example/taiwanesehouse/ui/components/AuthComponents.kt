@@ -535,23 +535,24 @@ fun RememberMeCheckbox(
     modifier: Modifier = Modifier
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = CheckboxDefaults.colors(
-                checkedColor = Color(0xFFFFD700)
+                checkedColor = Color(0xFF4CAF50),
+                uncheckedColor = Color.Gray,
+                checkmarkColor = Color.White
             )
         )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Remember me",
+            text = "Remember Me",
             fontSize = 14.sp,
-            color = Color(0xFF616161),
-            modifier = Modifier.padding(start = 8.dp)
+            fontWeight = FontWeight.Medium,
+            color = Color.Black
         )
     }
 }
