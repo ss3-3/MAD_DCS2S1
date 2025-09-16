@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.Date
 
 class PaymentViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -94,14 +93,17 @@ class PaymentViewModel(application: Application) : AndroidViewModel(application)
     // Validation Methods
     fun validateCardDetails(): Pair<Boolean, String> {
         val details = _cardDetails.value
+        val digits = details.cardNumber.replace(" ", "")
+        val cardType = detectCardType(digits)
 
         return when {
             details.cardHolderName.isBlank() -> false to "Please enter card holder name"
-            details.cardNumber.replace(" ", "").length != 16 -> false to "Please enter a valid 16-digit card number"
-            !isValidCardNumber(details.cardNumber.replace(" ", "")) -> false to "Please enter a valid card number"
+            digits.length !in 13..19 -> false to "Please enter a valid card number"
+            !isValidCardNumber(digits) -> false to "Please enter a valid card number"
             details.expiryDate.length != 5 || !details.expiryDate.contains("/") -> false to "Please enter expiry date in MM/YY format"
             !isValidExpiryDate(details.expiryDate) -> false to "Card has expired or invalid expiry date"
-            details.cvv.length != 3 -> false to "Please enter a valid 3-digit CVV"
+            cardType == CardType.AMEX && details.cvv.length != 4 -> false to "Please enter a valid 4-digit CVV"
+            cardType != CardType.AMEX && details.cvv.length != 3 -> false to "Please enter a valid 3-digit CVV"
             else -> true to ""
         }
     }
@@ -114,89 +116,6 @@ class PaymentViewModel(application: Application) : AndroidViewModel(application)
             !details.phoneNumber.startsWith("01") && details.phoneNumber.length == 10 -> false to "Phone number must start with 01"
             details.isOtpSent && details.otp.length != 6 -> false to "Please enter the 6-digit OTP"
             else -> true to ""
-        }
-    }
-
-    // Payment Processing
-    fun processPayment(
-        orderId: String,
-        amount: Double,
-        paymentMethod: String
-    ) {
-        viewModelScope.launch {
-            try {
-                _isProcessing.value = true
-                _paymentError.value = null
-
-                // Create payment record
-                val createResult = firebasePaymentManager.createPayment(
-                    orderId = orderId,
-                    amount = amount,
-                    paymentMethod = paymentMethod
-                )
-
-                if (createResult.isFailure) {
-                    _paymentError.value = "Failed to create payment record"
-                    return@launch
-                }
-
-                val payment = createResult.getOrNull()!!
-
-                // Prepare payment details based on method
-                val paymentDetails = when (paymentMethod) {
-                    "card" -> {
-                        val cardDetails = _cardDetails.value
-                        mapOf(
-                            "cardNumber" to cardDetails.cardNumber.replace(" ", ""),
-                            "expiryDate" to cardDetails.expiryDate,
-                            "cvv" to cardDetails.cvv,
-                            "cardHolderName" to cardDetails.cardHolderName
-                        )
-                    }
-                    "ewallet" -> {
-                        val ewalletDetails = _ewalletDetails.value
-                        mapOf(
-                            "phoneNumber" to ewalletDetails.phoneNumber,
-                            "otp" to ewalletDetails.otp,
-                            "walletType" to "TNG"
-                        )
-                    }
-                    "counter" -> emptyMap()
-                    else -> emptyMap()
-                }
-
-                // Process the payment
-                val processResult = firebasePaymentManager.processPayment(payment, paymentDetails)
-
-                if (processResult.isSuccess) {
-                    val result = processResult.getOrNull()!!
-                    _paymentResult.value = result
-
-                    // Save to local database
-                    savePaymentToLocalDB(payment.copy(
-                        paymentStatus = result.status,
-                        transactionId = result.transactionId,
-                        paymentDate = if (result.success) Date() else null
-                    ))
-
-                    // Refresh payment history
-                    loadPaymentHistory()
-
-                    // Clear sensitive details after successful payment
-                    if (result.success) {
-                        clearPaymentDetails()
-                    }
-                } else {
-                    _paymentError.value = processResult.exceptionOrNull()?.message
-                        ?: "Payment processing failed"
-                }
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Payment processing error", e)
-                _paymentError.value = e.message ?: "An unexpected error occurred"
-            } finally {
-                _isProcessing.value = false
-            }
         }
     }
 
@@ -277,8 +196,8 @@ class PaymentViewModel(application: Application) : AndroidViewModel(application)
 
     // Validation helper methods
     private fun isValidCardNumber(cardNumber: String): Boolean {
-        // Luhn algorithm for basic card validation
-        if (cardNumber.length != 16 || !cardNumber.all { it.isDigit() }) {
+        // Luhn algorithm for basic card validation supporting 13-19 digits
+        if (cardNumber.length !in 13..19 || !cardNumber.all { it.isDigit() }) {
             return false
         }
 
@@ -300,6 +219,20 @@ class PaymentViewModel(application: Application) : AndroidViewModel(application)
         }
 
         return sum % 10 == 0
+    }
+
+    private enum class CardType { VISA, MASTERCARD, AMEX, UNKNOWN }
+
+    private fun detectCardType(digits: String): CardType {
+        if (digits.isEmpty()) return CardType.UNKNOWN
+        return when {
+            digits.startsWith("4") -> CardType.VISA
+            digits.startsWith("34") || digits.startsWith("37") -> CardType.AMEX
+            // MasterCard: 51-55 or 2221-2720
+            digits.length >= 2 && digits.substring(0, 2).toIntOrNull() in 51..55 -> CardType.MASTERCARD
+            digits.length >= 4 && digits.substring(0, 4).toIntOrNull() in 2221..2720 -> CardType.MASTERCARD
+            else -> CardType.UNKNOWN
+        }
     }
 
     private fun isValidExpiryDate(expiryDate: String): Boolean {

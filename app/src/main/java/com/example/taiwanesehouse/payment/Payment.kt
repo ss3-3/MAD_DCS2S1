@@ -38,7 +38,8 @@ fun Payment(
 
     // Calculate totals
     val subtotal = cartItems.sumOf { it.getTotalPrice() }
-    val coinDiscount = coinsToUse * 0.01
+    // Align discount: 1 coin = RM0.10
+    val coinDiscount = coinsToUse * 0.10
     val finalTotal = (subtotal - coinDiscount).coerceAtLeast(0.0)
 
     Scaffold(

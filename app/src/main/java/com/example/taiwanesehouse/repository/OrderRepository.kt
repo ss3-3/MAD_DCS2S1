@@ -173,8 +173,6 @@ class OrderRepository @Inject constructor(
                 "totalAmount" to order.totalAmount,
                 "orderStatus" to order.orderStatus,
                 "orderDate" to order.orderDate,
-                "estimatedDeliveryTime" to order.estimatedDeliveryTime,
-                "deliveryAddress" to order.deliveryAddress,
                 "notes" to order.notes,
                 "paymentStatus" to order.paymentStatus,
                 "paymentMethod" to order.paymentMethod,
@@ -223,8 +221,6 @@ class OrderRepository @Inject constructor(
                     orderStatus = data["orderStatus"] as? String ?: "pending",
                     orderDate = (data["orderDate"] as? Timestamp)?.toDate()
                         ?: Date(),
-                    estimatedDeliveryTime = data["estimatedDeliveryTime"] as? String,
-                    deliveryAddress = data["deliveryAddress"] as? String,
                     notes = data["notes"] as? String,
                     paymentStatus = data["paymentStatus"] as? String ?: "pending",
                     paymentMethod = data["paymentMethod"] as? String,
