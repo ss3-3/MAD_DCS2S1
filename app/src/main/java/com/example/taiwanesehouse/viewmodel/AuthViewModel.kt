@@ -33,6 +33,66 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         application.getSharedPreferences("taiwanese_house_prefs", Context.MODE_PRIVATE)
     }
 
+    /**
+     * Check email availability (debounced from UI)
+     */
+    fun checkEmailAvailability(email: String, callback: (Boolean, String) -> Unit) {
+        val trimmedEmail = email.trim().lowercase()
+
+        if (trimmedEmail.isEmpty()) {
+            callback(false, "")
+            return
+        }
+
+        if (!authManager.isValidEmail(trimmedEmail)) {
+            callback(false, "Please enter a valid email address")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val exists = authManager.checkEmailExists(trimmedEmail)
+                if (exists) {
+                    callback(false, "This email is already registered")
+                } else {
+                    callback(true, "Email is available")
+                }
+            } catch (e: Exception) {
+                callback(false, "Unable to check email availability")
+            }
+        }
+    }
+
+    /**
+     * Check phone availability (debounced from UI)
+     */
+    fun checkPhoneAvailability(phoneNumber: String, callback: (Boolean, String) -> Unit) {
+        val trimmedPhone = phoneNumber.trim()
+
+        if (trimmedPhone.isEmpty()) {
+            callback(false, "")
+            return
+        }
+
+        if (!authManager.isValidPhoneNumber(trimmedPhone)) {
+            callback(false, "Invalid phone number format")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val exists = authManager.checkPhoneExists(trimmedPhone)
+                if (exists) {
+                    callback(false, "This phone number is already registered")
+                } else {
+                    callback(true, "Phone number is available")
+                }
+            } catch (e: Exception) {
+                callback(false, "Unable to check phone availability")
+            }
+        }
+    }
+
     init {
         // Load saved credentials and check for auto-login on app start
         loadSavedCredentials()

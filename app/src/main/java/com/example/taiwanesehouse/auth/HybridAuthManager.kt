@@ -101,7 +101,10 @@ class HybridAuthManager private constructor(context: Context) {
         securityAnswer: String
     ): AuthResult {
         return try {
-            // Check if user exists in Room first (offline check)
+            // Check if user exists in Room first (offline check) & email/phone uniqueness
+            val trimmedEmail = email.trim().lowercase()
+            val trimmedUsername = username.trim()
+            val cleanPhone = phoneNumber?.let { cleanPhoneNumber(it) }
             val existingUser = userDao.checkUserExists(email.trim().lowercase(), phoneNumber?.let { cleanPhoneNumber(it) })
             if (existingUser > 0) {
                 return AuthResult.Error("User already exists")
@@ -126,6 +129,20 @@ class HybridAuthManager private constructor(context: Context) {
                 }
             } catch (_: Exception) {
                 // Ignore network errors here; Firebase Auth will still enforce email uniqueness
+            }
+
+            // Comprehensive duplication checks
+            if (checkEmailExists(trimmedEmail)) {
+                return AuthResult.Error("This email is already registered")
+            }
+
+            if (!cleanPhone.isNullOrBlank() && checkPhoneExists(cleanPhone)) {
+                return AuthResult.Error("This phone number is already registered")
+            }
+
+            // Optional: Check username uniqueness
+            if (checkUsernameExists(trimmedUsername)) {
+                return AuthResult.Error("This username is already taken")
             }
 
             // Try Firebase registration (online)
@@ -350,11 +367,63 @@ class HybridAuthManager private constructor(context: Context) {
             false
         }
     }
-    /*
-    * Check email duplication
+    /**
+     * Check if email exists using Firebase Auth (more reliable than Firestore)
      */
     suspend fun checkEmailExists(email: String): Boolean {
-        return userDao.checkEmailExists(email) > 0
+        return try {
+            val methods = auth.fetchSignInMethodsForEmail(email.trim().lowercase()).await()
+            methods.signInMethods?.isNotEmpty() == true
+        } catch (e: Exception) {
+            // If Firebase check fails, fallback to local database
+            userDao.checkEmailExists(email.trim().lowercase()) > 0
+        }
+    }
+
+    /**
+     * Check if phone number exists
+     */
+    suspend fun checkPhoneExists(phoneNumber: String): Boolean {
+        val cleanPhone = cleanPhoneNumber(phoneNumber)
+        return try {
+            // Check Firestore first
+            val querySnapshot = firestore.collection("users")
+                .whereEqualTo("phoneNumber", cleanPhone)
+                .limit(1)
+                .get()
+                .await()
+
+            if (!querySnapshot.isEmpty) return true
+
+            // Check local database as fallback
+            userDao.checkPhoneExists(cleanPhone) > 0
+        } catch (e: Exception) {
+            // Fallback to local database only
+            userDao.checkPhoneExists(cleanPhone) > 0
+        }
+    }
+
+    /**
+     * Check if username exists (if you want username uniqueness)
+     */
+    suspend fun checkUsernameExists(username: String): Boolean {
+        val trimmedUsername = username.trim().lowercase()
+        return try {
+            // Check Firestore first
+            val querySnapshot = firestore.collection("users")
+                .whereEqualTo("username", trimmedUsername)
+                .limit(1)
+                .get()
+                .await()
+
+            if (!querySnapshot.isEmpty) return true
+
+            // Check local database as fallback
+            userDao.checkUsernameExists(trimmedUsername) > 0
+        } catch (e: Exception) {
+            // Fallback to local database only
+            userDao.checkUsernameExists(trimmedUsername) > 0
+        }
     }
 }
 
