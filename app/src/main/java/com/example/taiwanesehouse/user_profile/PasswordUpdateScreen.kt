@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.taiwanesehouse.R
 import com.example.taiwanesehouse.enumclass.Screen
+import com.example.taiwanesehouse.utils.EmailVerificationRequiredDialog
+import com.example.taiwanesehouse.utils.EmailVerificationUtils
 import com.google.firebase.auth.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -62,6 +64,10 @@ fun PasswordUpdateScreen(navController: NavController) {
     var errorMessage by rememberSaveable { mutableStateOf("") }
     var successMessage by rememberSaveable { mutableStateOf("") }
 
+    // Email verification states
+    var showVerificationDialog by remember { mutableStateOf(false) }
+    var isCheckingVerification by remember { mutableStateOf(false) }
+
     // Dialog states
     var confirmationDialogState by remember {
         mutableStateOf(
@@ -95,6 +101,29 @@ fun PasswordUpdateScreen(navController: NavController) {
         successMessage = ""
     }
 
+    // Check email verification before allowing password changes
+    fun checkEmailVerificationAndProceed(onProceed: () -> Unit) {
+        scope.launch {
+            try {
+                isCheckingVerification = true
+
+                // Reload user to get the latest verification status
+                currentUser?.reload()?.await()
+
+                val result = EmailVerificationUtils.checkEmailVerificationStatus()
+                if (result.isVerified) {
+                    onProceed()
+                } else {
+                    showVerificationDialog = true
+                }
+            } catch (e: Exception) {
+                errorMessage = "Failed to check verification status: ${e.localizedMessage}"
+            } finally {
+                isCheckingVerification = false
+            }
+        }
+    }
+
     // Send password reset email
     fun sendPasswordResetEmail() {
         confirmationDialogState = ConfirmationDialogState(
@@ -103,25 +132,27 @@ fun PasswordUpdateScreen(navController: NavController) {
             message = "We will send a secure password reset link to your email address. You will be logged out after sending the email. Continue?",
             isVisible = true,
             onConfirm = {
-                scope.launch {
-                    try {
-                        isLoading = true
-                        clearMessages()
+                checkEmailVerificationAndProceed {
+                    scope.launch {
+                        try {
+                            isLoading = true
+                            clearMessages()
 
-                        currentUser?.email?.let { email ->
-                            auth.sendPasswordResetEmail(email).await()
-                            currentMethod = PasswordUpdateMethod.EmailSent
-                            successDialogMessage = "Password reset email sent successfully! Please check your inbox."
-                            successDialogVisible = true
-                        } ?: run {
-                            errorMessage = "No email address found for this account"
+                            currentUser?.email?.let { email ->
+                                auth.sendPasswordResetEmail(email).await()
+                                currentMethod = PasswordUpdateMethod.EmailSent
+                                successDialogMessage = "Password reset email sent successfully! Please check your inbox."
+                                successDialogVisible = true
+                            } ?: run {
+                                errorMessage = "No email address found for this account"
+                            }
+                        } catch (e: FirebaseAuthInvalidUserException) {
+                            errorMessage = "No account found with this email address"
+                        } catch (e: Exception) {
+                            errorMessage = "Failed to send reset email: ${e.localizedMessage ?: "Please try again"}"
+                        } finally {
+                            isLoading = false
                         }
-                    } catch (e: FirebaseAuthInvalidUserException) {
-                        errorMessage = "No account found with this email address"
-                    } catch (e: Exception) {
-                        errorMessage = "Failed to send reset email: ${e.localizedMessage ?: "Please try again"}"
-                    } finally {
-                        isLoading = false
                     }
                 }
             },
@@ -137,33 +168,35 @@ fun PasswordUpdateScreen(navController: NavController) {
             message = "Are you sure you want to update your password? You will need to use the new password for future logins.",
             isVisible = true,
             onConfirm = {
-                scope.launch {
-                    try {
-                        isLoading = true
-                        clearMessages()
+                checkEmailVerificationAndProceed {
+                    scope.launch {
+                        try {
+                            isLoading = true
+                            clearMessages()
 
-                        currentUser?.let { user ->
-                            // Re-authenticate user with current password
-                            val credential = EmailAuthProvider.getCredential(user.email!!, currentPassword)
-                            user.reauthenticate(credential).await()
+                            currentUser?.let { user ->
+                                // Re-authenticate user with current password
+                                val credential = EmailAuthProvider.getCredential(user.email!!, currentPassword)
+                                user.reauthenticate(credential).await()
 
-                            // Update password
-                            user.updatePassword(newPassword).await()
+                                // Update password
+                                user.updatePassword(newPassword).await()
 
-                            currentMethod = PasswordUpdateMethod.Success
-                            successDialogMessage = "Password updated successfully!"
-                            successDialogVisible = true
-                        } ?: run {
-                            errorMessage = "User not authenticated"
+                                currentMethod = PasswordUpdateMethod.Success
+                                successDialogMessage = "Password updated successfully!"
+                                successDialogVisible = true
+                            } ?: run {
+                                errorMessage = "User not authenticated"
+                            }
+                        } catch (e: FirebaseAuthInvalidCredentialsException) {
+                            errorMessage = "Current password is incorrect"
+                        } catch (e: FirebaseAuthWeakPasswordException) {
+                            errorMessage = "New password is too weak. Please choose a stronger password."
+                        } catch (e: Exception) {
+                            errorMessage = "Failed to update password: ${e.localizedMessage ?: "Please try again"}"
+                        } finally {
+                            isLoading = false
                         }
-                    } catch (e: FirebaseAuthInvalidCredentialsException) {
-                        errorMessage = "Current password is incorrect"
-                    } catch (e: FirebaseAuthWeakPasswordException) {
-                        errorMessage = "New password is too weak. Please choose a stronger password."
-                    } catch (e: Exception) {
-                        errorMessage = "Failed to update password: ${e.localizedMessage ?: "Please try again"}"
-                    } finally {
-                        isLoading = false
                     }
                 }
             }
@@ -230,6 +263,18 @@ fun PasswordUpdateScreen(navController: NavController) {
             successDialogVisible = false
             successDialogMessage = ""
         }
+    )
+
+    // Email verification required dialog
+    EmailVerificationRequiredDialog(
+        showDialog = showVerificationDialog,
+        onDismiss = { showVerificationDialog = false },
+        onNavigateToVerification = {
+            showVerificationDialog = false
+            navController.navigate("verify_email")
+        },
+        title = "Verify Email to Change Password",
+        message = "For security reasons, please verify your email before changing your password."
     )
 
     Scaffold(
@@ -311,16 +356,44 @@ fun PasswordUpdateScreen(navController: NavController) {
                                 modifier = Modifier.padding(bottom = 24.dp)
                             )
 
+                            // Email verification warning card
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF0F7FF)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "🔒",
+                                        fontSize = 18.sp,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                    Text(
+                                        text = "Email verification is required for password changes for security purposes.",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF1976D2),
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+
                             // Email method
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
+                                    .clickable(enabled = !isCheckingVerification) {
                                         currentMethod = PasswordUpdateMethod.EmailMethod
                                     }
                                     .padding(bottom = 12.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF8F9FA)
+                                    containerColor = if (isCheckingVerification) Color(0xFFF5F5F5) else Color(0xFFF8F9FA)
                                 ),
                                 shape = RoundedCornerShape(12.dp),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -331,11 +404,21 @@ fun PasswordUpdateScreen(navController: NavController) {
                                         .padding(20.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "📧",
-                                        fontSize = 28.sp,
-                                        modifier = Modifier.padding(end = 16.dp)
-                                    )
+                                    if (isCheckingVerification) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .padding(end = 16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color.Gray
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "📧",
+                                            fontSize = 28.sp,
+                                            modifier = Modifier.padding(end = 16.dp)
+                                        )
+                                    }
                                     Column(
                                         modifier = Modifier.weight(1f)
                                     ) {
@@ -343,7 +426,7 @@ fun PasswordUpdateScreen(navController: NavController) {
                                             text = "Email Reset",
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = Color.Black
+                                            color = if (isCheckingVerification) Color.Gray else Color.Black
                                         )
                                         Text(
                                             text = "Get a secure password reset link via email",
@@ -362,7 +445,7 @@ fun PasswordUpdateScreen(navController: NavController) {
                                     Text(
                                         text = "→",
                                         fontSize = 18.sp,
-                                        color = Color.Gray,
+                                        color = if (isCheckingVerification) Color.Gray else Color.Gray,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -372,11 +455,11 @@ fun PasswordUpdateScreen(navController: NavController) {
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
+                                    .clickable(enabled = !isCheckingVerification) {
                                         currentMethod = PasswordUpdateMethod.CurrentPasswordMethod
                                     },
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF8F9FA)
+                                    containerColor = if (isCheckingVerification) Color(0xFFF5F5F5) else Color(0xFFF8F9FA)
                                 ),
                                 shape = RoundedCornerShape(12.dp),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -399,7 +482,7 @@ fun PasswordUpdateScreen(navController: NavController) {
                                             text = "Current Password",
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = Color.Black
+                                            color = if (isCheckingVerification) Color.Gray else Color.Black
                                         )
                                         Text(
                                             text = "Enter current password and set new one",
@@ -511,9 +594,9 @@ fun PasswordUpdateScreen(navController: NavController) {
                                     containerColor = Color(0xFFFFC107),
                                     contentColor = Color.Black
                                 ),
-                                enabled = !isLoading
+                                enabled = !isLoading && !isCheckingVerification
                             ) {
-                                if (isLoading) {
+                                if (isLoading || isCheckingVerification) {
                                     CircularProgressIndicator(
                                         color = Color.Black,
                                         modifier = Modifier.size(24.dp)
@@ -605,10 +688,10 @@ fun PasswordUpdateScreen(navController: NavController) {
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 trailingIcon = {
                                     TextButton(
-                                        onClick = { currentPasswordVisible = !currentPasswordVisible }
+                                        onClick = { newPasswordVisible = !newPasswordVisible }
                                     ) {
                                         Text(
-                                            text = if (currentPasswordVisible) "Hide" else "Show",
+                                            text = if (newPasswordVisible) "Hide" else "Show",
                                             fontSize = 12.sp,
                                             color = Color(0xFF007AFF)
                                         )
@@ -635,10 +718,10 @@ fun PasswordUpdateScreen(navController: NavController) {
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 trailingIcon = {
                                     TextButton(
-                                        onClick = { currentPasswordVisible = !currentPasswordVisible }
+                                        onClick = { confirmPasswordVisible = !confirmPasswordVisible }
                                     ) {
                                         Text(
-                                            text = if (currentPasswordVisible) "Hide" else "Show",
+                                            text = if (confirmPasswordVisible) "Hide" else "Show",
                                             fontSize = 12.sp,
                                             color = Color(0xFF007AFF)
                                         )
@@ -684,9 +767,9 @@ fun PasswordUpdateScreen(navController: NavController) {
                                     containerColor = Color(0xFFFFC107),
                                     contentColor = Color.Black
                                 ),
-                                enabled = !isLoading
+                                enabled = !isLoading && !isCheckingVerification
                             ) {
-                                if (isLoading) {
+                                if (isLoading || isCheckingVerification) {
                                     CircularProgressIndicator(
                                         color = Color.Black,
                                         modifier = Modifier.size(24.dp)

@@ -40,10 +40,29 @@ fun LoginScreen(
     val authState by viewModel.authState.collectAsState()
     val validationState by viewModel.validationState.collectAsState()
 
-    // Form states
+    // Form states - Initialize with saved credentials
     var emailOrPhone by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var rememberMe by rememberSaveable { mutableStateOf(false) }
+
+    // Initialize form with saved credentials
+    LaunchedEffect(Unit) {
+        val savedCredential = viewModel.getSavedCredential()
+        val savedRememberMe = viewModel.getSavedRememberMe()
+
+        if (savedCredential.isNotEmpty()) {
+            emailOrPhone = savedCredential
+            rememberMe = savedRememberMe
+        }
+    }
+
+    // Update form when auth state changes (in case of auto-load)
+    LaunchedEffect(authState.savedCredential) {
+        if (authState.savedCredential.isNotEmpty() && emailOrPhone.isEmpty()) {
+            emailOrPhone = authState.savedCredential
+            rememberMe = authState.rememberMe
+        }
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -73,6 +92,13 @@ fun LoginScreen(
         if (authState.successMessage.isNotEmpty()) {
             snackbarHostState.showSnackbar(authState.successMessage)
             viewModel.clearSuccess()
+        }
+    }
+
+    // Show error message
+    LaunchedEffect(authState.errorMessage) {
+        if (authState.errorMessage.isNotEmpty()) {
+            snackbarHostState.showSnackbar(authState.errorMessage)
         }
     }
 
@@ -147,13 +173,24 @@ fun LoginScreen(
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
 
-                            Text(
-                                text = "Please enter your credentials to continue.",
-                                fontSize = 14.sp,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
+                            // Show welcome message for remembered users
+                            if (rememberMe && emailOrPhone.isNotEmpty()) {
+                                Text(
+                                    text = "Welcome back! Your credentials have been remembered.",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF4CAF50),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "Please enter your credentials to continue.",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(bottom = 24.dp)
+                                )
+                            }
 
                             // Email or Phone field
                             EmailOrPhoneField(
@@ -197,11 +234,34 @@ fun LoginScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Remember me checkbox
-                            RememberMeCheckbox(
-                                checked = rememberMe,
-                                onCheckedChange = { rememberMe = it }
-                            )
+                            // Remember me checkbox with clear option
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RememberMeCheckbox(
+                                    checked = rememberMe,
+                                    onCheckedChange = { rememberMe = it }
+                                )
+
+                                // Clear saved credentials button
+                                if (authState.savedCredential.isNotEmpty()) {
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.clearSavedCredentials()
+                                            emailOrPhone = ""
+                                            rememberMe = false
+                                        }
+                                    ) {
+                                        Text(
+                                            text = "Clear Saved",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFFFF6B6B)
+                                        )
+                                    }
+                                }
+                            }
 
                             Spacer(modifier = Modifier.height(16.dp))
 

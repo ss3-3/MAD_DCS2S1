@@ -1,6 +1,5 @@
 package com.example.taiwanesehouse.user_profile
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,7 +13,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,20 +34,60 @@ fun VerifyEmailScreen(navController: NavController) {
     // States
     var isSendingVerification by rememberSaveable { mutableStateOf(false) }
     var isCheckingVerification by rememberSaveable { mutableStateOf(false) }
+    var isInitialCheck by rememberSaveable { mutableStateOf(true) }
     var message by rememberSaveable { mutableStateOf("") }
     var messageType by rememberSaveable { mutableStateOf(MessageType.INFO) }
     var userEmail by rememberSaveable { mutableStateOf("") }
+    var isAlreadyVerified by rememberSaveable { mutableStateOf(false) }
 
-    // Get current user email
+    // Success dialog state
+    var successDialogVisible by remember { mutableStateOf(false) }
+
+    // Function to check verification status
+    suspend fun checkVerificationStatus(): Boolean {
+        return try {
+            val user = auth.currentUser
+            if (user != null) {
+                user.reload().await()
+                if (user.isEmailVerified) {
+                    // Update Firestore
+                    firestore.collection("users")
+                        .document(user.uid)
+                        .update("emailVerified", true)
+                        .await()
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // Check verification status on screen load
     LaunchedEffect(Unit) {
         val currentUser = auth.currentUser
         if (currentUser != null) {
             userEmail = currentUser.email ?: ""
+
+            // Check if already verified
+            isCheckingVerification = true
+            val isVerified = checkVerificationStatus()
+
+            if (isVerified) {
+                isAlreadyVerified = true
+                successDialogVisible = true
+            } else {
+                message = "Please verify your email to continue using all features."
+                messageType = MessageType.INFO
+            }
+            isCheckingVerification = false
+            isInitialCheck = false
         }
     }
-
-    // Success dialog state
-    var successDialogVisible by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -93,14 +131,17 @@ fun VerifyEmailScreen(navController: NavController) {
                 },
                 title = {
                     Text(
-                        text = "Email Verified!",
+                        text = if (isAlreadyVerified) "Already Verified!" else "Email Verified!",
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
                 },
                 text = {
                     Text(
-                        text = "Your email has been successfully verified. Your profile has been updated.",
+                        text = if (isAlreadyVerified)
+                            "Your email is already verified. You can use all features of the app."
+                        else
+                            "Your email has been successfully verified. Your profile has been updated.",
                         color = Color.Gray
                     )
                 },
@@ -123,320 +164,350 @@ fun VerifyEmailScreen(navController: NavController) {
             )
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-
-            item {
-                // Main card
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 4.dp,
-                    modifier = Modifier.fillMaxWidth()
+        // Show loading during initial check
+        if (isInitialCheck && isCheckingVerification) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier.padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    CircularProgressIndicator(
+                        color = Color(0xFFFFC107),
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Checking verification status...",
+                        fontSize = 16.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+
+                item {
+                    // Main card
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        shadowElevation = 4.dp,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Email icon
-                        Card(
-                            modifier = Modifier.size(80.dp),
-                            shape = RoundedCornerShape(40.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFFFC107).copy(alpha = 0.2f)
-                            )
+                        Column(
+                            modifier = Modifier.padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Email,
-                                    contentDescription = "Email",
-                                    tint = Color(0xFFFFC107),
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Text(
-                            text = "Verify Your Email",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "We need to verify your email address to secure your account and enable all features.",
-                            fontSize = 14.sp,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 20.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Email display
-                        if (userEmail.isNotEmpty()) {
+                            // Email icon
                             Card(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.size(80.dp),
+                                shape = RoundedCornerShape(40.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF5F5F5)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
+                                    containerColor = Color(0xFFFFC107).copy(alpha = 0.2f)
+                                )
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = "Email Address",
-                                        fontSize = 12.sp,
-                                        color = Color.Gray,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = userEmail,
-                                        fontSize = 16.sp,
-                                        color = Color.Black,
-                                        fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(top = 4.dp)
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = "Email",
+                                        tint = Color(0xFFFFC107),
+                                        modifier = Modifier.size(40.dp)
                                     )
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
 
-                        // Send verification email button
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    try {
-                                        isSendingVerification = true
-                                        message = ""
-                                        val user = auth.currentUser
-                                        if (user == null) {
-                                            message = "Not logged in"
-                                            messageType = MessageType.ERROR
-                                        } else {
-                                            user.sendEmailVerification().await()
-                                            message = "Verification email sent successfully!"
-                                            messageType = MessageType.SUCCESS
-                                        }
-                                    } catch (e: Exception) {
-                                        message = "Failed to send verification email: ${e.message}"
-                                        messageType = MessageType.ERROR
-                                    } finally {
-                                        isSendingVerification = false
+                            Text(
+                                text = "Verify Your Email",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = "We need to verify your email address to secure your account and enable all features.",
+                                fontSize = 14.sp,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 20.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Email display
+                            if (userEmail.isNotEmpty()) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFF5F5F5)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        Text(
+                                            text = "Email Address",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = userEmail,
+                                            fontSize = 16.sp,
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
                                     }
                                 }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFFFC107),
-                                contentColor = Color.Black
-                            ),
-                            enabled = !isSendingVerification && !isCheckingVerification
-                        ) {
-                            if (isSendingVerification) {
-                                CircularProgressIndicator(
-                                    color = Color.Black,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Sending...",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Email,
-                                    contentDescription = "Send Email",
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Send Verification Email",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
 
-                        // Check verification button
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    try {
-                                        isCheckingVerification = true
-                                        message = ""
-                                        val user = auth.currentUser
-                                        if (user != null) {
-                                            user.reload().await()
-                                            if (user.isEmailVerified) {
-                                                firestore.collection("users")
-                                                    .document(user.uid)
-                                                    .update("emailVerified", true)
-                                                    .await()
+                            // Send verification email button
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        try {
+                                            isSendingVerification = true
+                                            message = ""
+                                            val user = auth.currentUser
+                                            if (user == null) {
+                                                message = "Not logged in"
+                                                messageType = MessageType.ERROR
+                                            } else {
+                                                user.sendEmailVerification().await()
+                                                message = "Verification email sent successfully!"
+                                                messageType = MessageType.SUCCESS
+                                            }
+                                        } catch (e: Exception) {
+                                            message = "Failed to send verification email: ${e.message}"
+                                            messageType = MessageType.ERROR
+                                        } finally {
+                                            isSendingVerification = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFFFC107),
+                                    contentColor = Color.Black
+                                ),
+                                enabled = !isSendingVerification && !isCheckingVerification
+                            ) {
+                                if (isSendingVerification) {
+                                    CircularProgressIndicator(
+                                        color = Color.Black,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Sending...",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = "Send Email",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Send Verification Email",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
 
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Check verification button
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        try {
+                                            isCheckingVerification = true
+                                            message = ""
+
+                                            val isVerified = checkVerificationStatus()
+
+                                            if (isVerified) {
                                                 successDialogVisible = true
                                             } else {
                                                 message = "Email not verified yet. Please check your inbox and click the verification link."
                                                 messageType = MessageType.WARNING
                                             }
-                                        } else {
-                                            message = "Not logged in"
+                                        } catch (e: Exception) {
+                                            message = "Failed to check verification: ${e.message}"
                                             messageType = MessageType.ERROR
+                                        } finally {
+                                            isCheckingVerification = false
                                         }
-                                    } catch (e: Exception) {
-                                        message = "Failed to check verification: ${e.message}"
-                                        messageType = MessageType.ERROR
-                                    } finally {
-                                        isCheckingVerification = false
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFFFFC107)
+                                ),
+                                enabled = !isSendingVerification && !isCheckingVerification
+                            ) {
+                                if (isCheckingVerification && !isInitialCheck) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFFFC107),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Checking...",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Check Verification",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "I've Verified My Email",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
+                            // Message display
+                            if (message.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = when (messageType) {
+                                            MessageType.SUCCESS -> Color(0xFFE8F5E8)
+                                            MessageType.ERROR -> Color(0xFFFDE8E8)
+                                            MessageType.WARNING -> Color(0xFFFFF8E1)
+                                            MessageType.INFO -> Color(0xFFE3F2FD)
+                                        }
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = when (messageType) {
+                                                MessageType.SUCCESS -> "✅ "
+                                                MessageType.ERROR -> "❌ "
+                                                MessageType.WARNING -> "⚠️ "
+                                                MessageType.INFO -> "ℹ️ "
+                                            },
+                                            fontSize = 16.sp
+                                        )
+                                        Text(
+                                            text = message,
+                                            color = when (messageType) {
+                                                MessageType.SUCCESS -> Color(0xFF2E7D32)
+                                                MessageType.ERROR -> Color(0xFFD32F2F)
+                                                MessageType.WARNING -> Color(0xFFEF6C00)
+                                                MessageType.INFO -> Color(0xFF1976D2)
+                                            },
+                                            fontSize = 14.sp,
+                                            textAlign = TextAlign.Center
+                                        )
                                     }
                                 }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFFFC107)
-                            ),
-                            enabled = !isSendingVerification && !isCheckingVerification
-                        ) {
-                            if (isCheckingVerification) {
-                                CircularProgressIndicator(
-                                    color = Color(0xFFFFC107),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Checking...",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Check Verification",
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "I've Verified My Email",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-
-                        // Message display
-                        if (message.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = when (messageType) {
-                                        MessageType.SUCCESS -> Color(0xFFE8F5E8)
-                                        MessageType.ERROR -> Color(0xFFFDE8E8)
-                                        MessageType.WARNING -> Color(0xFFFFF8E1)
-                                        MessageType.INFO -> Color(0xFFE3F2FD)
-                                    }
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = message,
-                                    color = when (messageType) {
-                                        MessageType.SUCCESS -> Color(0xFF2E7D32)
-                                        MessageType.ERROR -> Color(0xFFD32F2F)
-                                        MessageType.WARNING -> Color(0xFFEF6C00)
-                                        MessageType.INFO -> Color(0xFF1976D2)
-                                    },
-                                    fontSize = 14.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(16.dp)
-                                )
                             }
                         }
                     }
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                // Instructions card
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF8F9FA),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp)
+                    // Instructions card
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8F9FA),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Instructions",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Text(
+                                text = "Instructions",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
 
-                        InstructionItem(
-                            number = "1",
-                            text = "Click 'Send Verification Email' to receive a verification link"
-                        )
+                            InstructionItem(
+                                number = "1",
+                                text = "Click 'Send Verification Email' to receive a verification link"
+                            )
 
-                        InstructionItem(
-                            number = "2",
-                            text = "Check your email inbox (and spam folder)"
-                        )
+                            InstructionItem(
+                                number = "2",
+                                text = "Check your email inbox (and spam folder)"
+                            )
 
-                        InstructionItem(
-                            number = "3",
-                            text = "Click the verification link in the email"
-                        )
+                            InstructionItem(
+                                number = "3",
+                                text = "Click the verification link in the email"
+                            )
 
-                        InstructionItem(
-                            number = "4",
-                            text = "Return here and click 'I've Verified My Email'"
-                        )
+                            InstructionItem(
+                                number = "4",
+                                text = "Return here and click 'I've Verified My Email'"
+                            )
+                        }
                     }
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = "Didn't receive the email? Check your spam folder or try sending again.",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                    Text(
+                        text = "Didn't receive the email? Check your spam folder or try sending again.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
             }
         }
     }

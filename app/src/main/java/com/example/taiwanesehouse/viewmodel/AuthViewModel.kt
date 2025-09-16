@@ -1,6 +1,8 @@
 package com.example.taiwanesehouse.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.taiwanesehouse.auth.HybridAuthManager
@@ -26,9 +28,86 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     // Current user flow from Room database
     val currentUser = authManager.getCurrentUserFlow()
 
+    // SharedPreferences for Remember Me
+    private val sharedPreferences: SharedPreferences by lazy {
+        application.getSharedPreferences("taiwanese_house_prefs", Context.MODE_PRIVATE)
+    }
+
     init {
-        // Check for auto-login on app start
+        // Load saved credentials and check for auto-login on app start
+        loadSavedCredentials()
         checkAutoLogin()
+    }
+
+    private fun loadSavedCredentials() {
+        val savedEmail = sharedPreferences.getString("saved_email", "") ?: ""
+        val savedPhone = sharedPreferences.getString("saved_phone", "") ?: ""
+        val rememberMe = sharedPreferences.getBoolean("remember_me", false)
+
+        if (rememberMe && (savedEmail.isNotEmpty() || savedPhone.isNotEmpty())) {
+            val savedCredential = if (savedEmail.isNotEmpty()) savedEmail else savedPhone
+
+            _authState.value = _authState.value.copy(
+                savedEmail = savedEmail,
+                savedPhone = savedPhone,
+                savedCredential = savedCredential, // Add this field to populate the input
+                rememberMe = rememberMe
+            )
+        }
+    }
+
+    fun getSavedCredential(): String {
+        val authState = _authState.value
+        return when {
+            authState.savedEmail.isNotEmpty() -> authState.savedEmail
+            authState.savedPhone.isNotEmpty() -> authState.savedPhone
+            else -> ""
+        }
+    }
+
+    fun getSavedRememberMe(): Boolean {
+        return _authState.value.rememberMe
+    }
+
+    private fun saveCredentials(emailOrPhone: String, rememberMe: Boolean) {
+        with(sharedPreferences.edit()) {
+            if (rememberMe) {
+                val inputType = detectInputType(emailOrPhone)
+                if (inputType == "email") {
+                    putString("saved_email", emailOrPhone)
+                    remove("saved_phone")
+                } else if (inputType == "phone") {
+                    putString("saved_phone", emailOrPhone)
+                    remove("saved_email")
+                }
+                putBoolean("remember_me", true)
+            } else {
+                remove("saved_email")
+                remove("saved_phone")
+                putBoolean("remember_me", false)
+            }
+            apply()
+        }
+
+        // Update state immediately
+        loadSavedCredentials()
+    }
+
+    fun clearSavedCredentials() {
+        with(sharedPreferences.edit()) {
+            remove("saved_email")
+            remove("saved_phone")
+            putBoolean("remember_me", false)
+            apply()
+        }
+
+        // Update state immediately
+        _authState.value = _authState.value.copy(
+            savedEmail = "",
+            savedPhone = "",
+            savedCredential = "",
+            rememberMe = false
+        )
     }
 
     /**
@@ -89,12 +168,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Login user
+     * Login user - Fixed to properly save credentials
      */
     fun loginUser(
         emailOrPhone: String,
         password: String,
-        rememberMe: Boolean = false
+        rememberMe: Boolean
     ) {
         viewModelScope.launch {
             _authState.value = _authState.value.copy(isLoading = true, errorMessage = "")
@@ -107,6 +186,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
             when (result) {
                 is com.example.taiwanesehouse.auth.AuthResult.Success -> {
+                    // Save credentials if login is successful
+                    saveCredentials(emailOrPhone.trim(), rememberMe)
+
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         user = result.user,
@@ -125,12 +207,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Logout user
+     * Logout user - Clear saved credentials if needed
      */
-    fun logout() {
+    fun logout(clearRememberedCredentials: Boolean = false) {
         viewModelScope.launch {
+            if (clearRememberedCredentials) {
+                clearSavedCredentials()
+            }
+
             authManager.logout()
-            _authState.value = AuthState() // Reset to initial state
+            _authState.value = AuthState().copy(
+                // Preserve saved credentials if not explicitly cleared
+                savedEmail = if (clearRememberedCredentials) "" else _authState.value.savedEmail,
+                savedPhone = if (clearRememberedCredentials) "" else _authState.value.savedPhone,
+                savedCredential = if (clearRememberedCredentials) "" else _authState.value.savedCredential,
+                rememberMe = if (clearRememberedCredentials) false else _authState.value.rememberMe
+            )
         }
     }
 
