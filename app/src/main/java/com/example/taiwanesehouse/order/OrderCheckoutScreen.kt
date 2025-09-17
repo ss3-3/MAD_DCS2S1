@@ -2,6 +2,7 @@ package com.example.taiwanesehouse.order
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,7 +30,10 @@ import com.example.taiwanesehouse.enumclass.Screen
 import com.example.taiwanesehouse.payment.FirebasePaymentManager
 import com.example.taiwanesehouse.viewmodel.OrderViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,15 +59,108 @@ fun OrderCheckoutScreen(
     var coinsUsed by remember { mutableStateOf(OrderDataManager.getCoinsUsed()) }
     var coinDiscount by remember { mutableStateOf(OrderDataManager.getCoinDiscount()) }
     var finalTotal by remember { mutableStateOf(OrderDataManager.getFinalTotal()) }
+    var voucherDiscount by remember { mutableStateOf(OrderDataManager.getVoucherDiscount()) }
+    var selectedVoucher by remember { mutableStateOf(OrderDataManager.getAppliedVoucher()) }
+    var isVoucherDialogOpen by remember { mutableStateOf(false) }
+    val availableVouchers = remember {
+        listOf(
+            OrderDataManager.Voucher.Flat(amount = 5.0, minSpend = 30.0, label = "RM5 OFF >= RM30"),
+            OrderDataManager.Voucher.Flat(amount = 15.0, minSpend = 100.0, label = "RM15 OFF >= RM100"),
+            OrderDataManager.Voucher.Percent(percent = 0.20, cap = 15.0, minSpend = 50.0, label = "20% OFF, cap RM15, >= RM50")
+        )
+    }
+
+    // Voucher picker dialog
+    if (isVoucherDialogOpen) {
+        AlertDialog(
+            onDismissRequest = { isVoucherDialogOpen = false },
+            confirmButton = {},
+            title = { Text("Choose Voucher") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    availableVouchers.forEach { v ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedVoucher = v
+                                    OrderDataManager.setVoucher(selectedVoucher)
+                                    voucherDiscount = OrderDataManager.getVoucherDiscount()
+                                    coinDiscount = OrderDataManager.getCoinDiscount()
+                                    finalTotal = OrderDataManager.getFinalTotal()
+                                    isVoucherDialogOpen = false
+                                },
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        ) {
+                            Text(
+                                text = v.code,
+                                modifier = Modifier.padding(12.dp),
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
+            }
+        )
+    }
 
     // Order and payment state
     val isLoading by orderManager.isLoading.collectAsState()
     val orderCreated by orderViewModel.orderCreated.collectAsState()
     var isProcessingPayment by remember { mutableStateOf(false) }
+    val memberCoins by cartManager.memberCoins.collectAsState()
 
     // Only payment selection; no customer info for dine-in/takeaway app
     var customerPhone by remember { mutableStateOf("") }
     var selectedPaymentMethod by remember { mutableStateOf("cash") }
+    var phoneInput by remember { mutableStateOf("") }
+
+    // Restore last pending order if app restarted and manager is empty
+    LaunchedEffect(Unit) {
+        if (OrderDataManager.isEmpty()) {
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                try {
+                    val snapshot = FirebaseFirestore.getInstance().collection("orders")
+                        .whereEqualTo("userId", uid)
+                        .whereEqualTo("paymentStatus", "pending")
+                        .orderBy("orderDate", Query.Direction.DESCENDING)
+                        .limit(1)
+                        .get()
+                        .await()
+
+                    val doc = snapshot.documents.firstOrNull()
+                    val data = doc?.data
+                    if (data != null) {
+                        val orderItems = (data["orderItems"] as? List<Map<String, Any>>).orEmpty()
+                        val restoredItems = orderItems.map { item ->
+                            CartItem(
+                                foodName = item["foodName"] as? String ?: "",
+                                basePrice = (item["basePrice"] as? Number)?.toDouble() ?: 0.0,
+                                foodQuantity = (item["quantity"] as? Number)?.toInt() ?: 1,
+                                foodAddOns = (item["addOns"] as? List<String>) ?: emptyList(),
+                                foodRemovals = (item["removals"] as? List<String>) ?: emptyList(),
+                                imagesRes = (item["imageRes"] as? Number)?.toInt() ?: 0
+                            )
+                        }
+                        val restoredCoinsUsed = (data["coinsUsed"] as? Number)?.toInt() ?: 0
+                        val restoredSubtotal = (data["subtotalAmount"] as? Number)?.toDouble()
+                        val restoredFinalTotal = (data["totalAmount"] as? Number)?.toDouble()
+                        val restoredCoinDiscount = (data["coinDiscount"] as? Number)?.toDouble()
+
+                        OrderDataManager.restoreFromPersistedOrder(
+                            restoredItems,
+                            restoredCoinsUsed,
+                            restoredSubtotal,
+                            restoredCoinDiscount,
+                            restoredFinalTotal
+                        )
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+    }
 
     // Handle order creation success - now proceed to payment
     LaunchedEffect(orderCreated) {
@@ -94,7 +191,7 @@ fun OrderCheckoutScreen(
                             )
                             "ewallet" -> mapOf(
                                 "walletType" to "TNG",
-                                "phoneNumber" to customerPhone
+                                "phoneNumber" to (if (phoneInput.isNotBlank()) phoneInput else customerPhone)
                             )
                             "online" -> mapOf(
                                 "gateway" to "stripe",
@@ -119,23 +216,42 @@ fun OrderCheckoutScreen(
                         val paymentResult = paymentManager.processPayment(payment.copy(paymentMethod = normalizedMethod), paymentDetails)
 
                         if (paymentResult.isSuccess) {
-                            // Award coins: 1 coin = RM 1 spent (use floor)
-                            val coinsEarned = kotlin.math.floor(finalTotal).toInt()
-                            if (coinsEarned > 0) {
+                            // Deduct coins after success
+                            val userId = auth.currentUser?.uid
+                            if (userId != null && coinsUsed > 0) {
                                 try {
-                                    val userId = auth.currentUser?.uid
-                                    if (userId != null) {
-                                        com.example.taiwanesehouse.repository.UserRepository(
-                                            com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).userDao()
-                                        ).addCoinsToUser(userId, coinsEarned)
-                                    }
+                                    com.example.taiwanesehouse.repository.UserRepository(
+                                        com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).userDao()
+                                    ).deductCoinsFromUser(userId, coinsUsed)
                                 } catch (_: Exception) {}
                             }
+
+                            // Award coins: 1 coin = RM 1 spent (use floor of subtotal before discount)
+                            val coinsEarned = kotlin.math.floor(subtotal).toInt()
+                            if (userId != null && coinsEarned > 0) {
+                                try {
+                                    com.example.taiwanesehouse.repository.UserRepository(
+                                        com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).userDao()
+                                    ).addCoinsToUser(userId, coinsEarned)
+                                } catch (_: Exception) {}
+                            }
+
+                            // Force-refresh coins into Room from Firestore so UI updates immediately
+                            try {
+                                val doc = FirebaseFirestore.getInstance().collection("users").document(userId ?: "").get().await()
+                                val latestCoins = doc.getLong("coins")?.toInt() ?: 0
+                                com.example.taiwanesehouse.database.AppDatabase
+                                    .getDatabase(context)
+                                    .userDao()
+                                    .updateUserCoins(userId ?: "", latestCoins)
+                            } catch (_: Exception) {}
                             Toast.makeText(context, "Order placed successfully! Order ID: $orderId", Toast.LENGTH_LONG).show()
 
                             // Clear cart data after successful order
                             CartDataManager.clear()
                             cartManager.clearCart()
+                            // Clear locked order data
+                            OrderDataManager.clear()
 
                             // Navigate to order confirmation
                             navController.navigate(Screen.Menu.name)
@@ -153,6 +269,11 @@ fun OrderCheckoutScreen(
                 }
             }
         }
+    }
+
+    // For cash: assume success immediately (no pending) and finalize inline
+    LaunchedEffect(selectedPaymentMethod) {
+        // No-op here; handled on button click below
     }
 
     // Show empty cart message
@@ -297,6 +418,17 @@ fun OrderCheckoutScreen(
                         Text("RM %.2f".format(subtotal), fontSize = 16.sp, color = Color.Black)
                     }
 
+                    if (voucherDiscount > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Voucher:", fontSize = 16.sp, color = Color(0xFF1976D2))
+                            Text("-RM %.2f".format(voucherDiscount), fontSize = 16.sp, color = Color(0xFF1976D2))
+                        }
+                    }
+
                     if (coinDiscount > 0) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
@@ -327,6 +459,16 @@ fun OrderCheckoutScreen(
                             color = Color(0xFFFFC107)
                         )
                     }
+
+                    // Show applied voucher label under the total
+                    if (selectedVoucher != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Voucher: ${selectedVoucher?.code}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF1976D2)
+                        )
+                    }
                 }
             }
 
@@ -351,26 +493,78 @@ fun OrderCheckoutScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Coins:", color = Color.Black)
+                        Column {
+                            Text("Coins:", color = Color.Black)
+                            Text(
+                                text = "Available: $memberCoins (RM %.2f)".format(memberCoins * 0.10),
+                                color = Color.Gray,
+                                fontSize = 12.sp
+                            )
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = {
                                 coinsUsed = (coinsUsed - 1).coerceAtLeast(0)
                                 OrderDataManager.setCoinsUsed(coinsUsed)
                                 coinDiscount = OrderDataManager.getCoinDiscount()
+                                voucherDiscount = OrderDataManager.getVoucherDiscount()
                                 finalTotal = OrderDataManager.getFinalTotal()
                             }) { Text("➖") }
                             Text("$coinsUsed", color = Color.Black)
                             TextButton(onClick = {
-                                // Max by subtotal
-                                val maxBySubtotal = kotlin.math.floor(subtotal / 0.10).toInt()
-                                coinsUsed = (coinsUsed + 1).coerceAtMost(maxBySubtotal)
+                                // Max by (subtotal - voucher) and available coins
+                                val maxBySubtotal = OrderDataManager.getMaxCoinsBySubtotal()
+                                val maxAllowed = minOf(maxBySubtotal, memberCoins)
+                                coinsUsed = (coinsUsed + 1).coerceAtMost(maxAllowed)
                                 OrderDataManager.setCoinsUsed(coinsUsed)
                                 coinDiscount = OrderDataManager.getCoinDiscount()
+                                voucherDiscount = OrderDataManager.getVoucherDiscount()
                                 finalTotal = OrderDataManager.getFinalTotal()
                             }) { Text("➕") }
                         }
                     }
                     Text("Discount: -RM %.2f".format(coinDiscount), color = Color(0xFF4CAF50))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Voucher selector (separated section)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("🎟️ Voucher", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = selectedVoucher?.code ?: "No voucher selected",
+                                color = Color.Black
+                            )
+                            if (voucherDiscount > 0) {
+                                Text(
+                                    text = "Applied: -RM %.2f".format(voucherDiscount),
+                                    color = Color(0xFF1976D2),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { isVoucherDialogOpen = true }) { Text("Choose") }
+                            TextButton(onClick = {
+                                selectedVoucher = null
+                                OrderDataManager.setVoucher(null)
+                                voucherDiscount = OrderDataManager.getVoucherDiscount()
+                                coinDiscount = OrderDataManager.getCoinDiscount()
+                                finalTotal = OrderDataManager.getFinalTotal()
+                            }) { Text("Clear") }
+                        }
+                    }
                 }
             }
 
@@ -434,6 +628,19 @@ fun OrderCheckoutScreen(
                         Text("📱 E-Wallet (TNG/GrabPay)", fontSize = 16.sp)
                     }
 
+                    if (selectedPaymentMethod == "ewallet") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = phoneInput,
+                            onValueChange = { new ->
+                                phoneInput = new.filter { it.isDigit() }.take(11)
+                            },
+                            label = { Text("Phone Number (+60)") },
+                            singleLine = true,
+                            placeholder = { Text("0123456789") }
+                        )
+                    }
+
 //                    Row(verticalAlignment = Alignment.CenterVertically) {
 //                        RadioButton(
 //                            selected = selectedPaymentMethod == "online",
@@ -488,6 +695,44 @@ fun OrderCheckoutScreen(
                                 finalTotal = finalTotal,
                                 coinsUsed = coinsUsed
                             )
+
+                            // If cash, assume immediate success and finalize here
+                            if (selectedPaymentMethod == "cash") {
+                                val userId = auth.currentUser?.uid
+                                // Deduct coins used
+                                if (userId != null && coinsUsed > 0) {
+                                    try {
+                                        com.example.taiwanesehouse.repository.UserRepository(
+                                            com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).userDao()
+                                        ).deductCoinsFromUser(userId, coinsUsed)
+                                    } catch (_: Exception) {}
+                                }
+                                // Award coins based on subtotal before discounts
+                                val coinsEarned = kotlin.math.floor(subtotal).toInt()
+                                if (userId != null && coinsEarned > 0) {
+                                    try {
+                                        com.example.taiwanesehouse.repository.UserRepository(
+                                            com.example.taiwanesehouse.database.AppDatabase.getDatabase(context).userDao()
+                                        ).addCoinsToUser(userId, coinsEarned)
+                                    } catch (_: Exception) {}
+                                }
+                                // Refresh local coins from Firestore
+                                try {
+                                    val doc = com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(userId ?: "").get().await()
+                                    val latestCoins = doc.getLong("coins")?.toInt() ?: 0
+                                    com.example.taiwanesehouse.database.AppDatabase
+                                        .getDatabase(context)
+                                        .userDao()
+                                        .updateUserCoins(userId ?: "", latestCoins)
+                                } catch (_: Exception) {}
+
+                                Toast.makeText(context, "Order placed successfully! (Cash)", Toast.LENGTH_LONG).show()
+                                // Clear cart and order state
+                                CartDataManager.clear()
+                                cartManager.clearCart()
+                                OrderDataManager.clear()
+                                navController.navigate(com.example.taiwanesehouse.enumclass.Screen.Menu.name)
+                            }
                         } catch (e: Exception) {
                             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                         }

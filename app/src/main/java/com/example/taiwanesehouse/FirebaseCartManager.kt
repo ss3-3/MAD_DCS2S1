@@ -125,25 +125,55 @@ class FirebaseCartManager {
             // Initialize user structure if needed
             initializeUserCartStructure()
 
-            // Create a unique document ID for this cart item
-            val cartRef = firestore.collection("users")
+            val cartCollection = firestore.collection("users")
                 .document(user.uid)
                 .collection("cart")
-                .document()
 
-            val cartData = hashMapOf(
-                "foodName" to cartItem.foodName,
-                "basePrice" to cartItem.basePrice,
-                "foodQuantity" to cartItem.foodQuantity,
-                "foodAddOns" to cartItem.foodAddOns, // Already a List<String>
-                "foodRemovals" to cartItem.foodRemovals, // Already a List<String>
-                "imagesRes" to cartItem.imagesRes,
-                "foodId" to cartItem.foodId,
-                "addedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
-            )
+            // Build a stable configuration key for duplicate detection
+            val addOnsKey = cartItem.foodAddOns.sorted().joinToString(",")
+            val removalsKey = cartItem.foodRemovals.sorted().joinToString(",")
+            val configKey = listOf(
+                cartItem.foodName,
+                cartItem.basePrice.toString(),
+                addOnsKey,
+                removalsKey,
+                cartItem.imagesRes.toString(),
+                cartItem.foodId ?: ""
+            ).joinToString("|")
 
-            cartRef.set(cartData).await()
-            true
+            // Try to find an existing item with the same configuration
+            val existingQuery = cartCollection
+                .whereEqualTo("configKey", configKey)
+                .get()
+                .await()
+
+            if (!existingQuery.isEmpty) {
+                val doc = existingQuery.documents.first()
+                val existingQty = doc.getLong("foodQuantity")?.toInt() ?: 1
+                val newQty = existingQty + (cartItem.foodQuantity.coerceAtLeast(1))
+                cartCollection.document(doc.id)
+                    .update("foodQuantity", newQty)
+                    .await()
+                true
+            } else {
+                // Create a new cart item with configKey
+                val cartRef = cartCollection.document()
+
+                val cartData = hashMapOf(
+                    "foodName" to cartItem.foodName,
+                    "basePrice" to cartItem.basePrice,
+                    "foodQuantity" to cartItem.foodQuantity,
+                    "foodAddOns" to cartItem.foodAddOns, // Already a List<String>
+                    "foodRemovals" to cartItem.foodRemovals, // Already a List<String>
+                    "imagesRes" to cartItem.imagesRes,
+                    "foodId" to cartItem.foodId,
+                    "configKey" to configKey,
+                    "addedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                )
+
+                cartRef.set(cartData).await()
+                true
+            }
         } catch (e: Exception) {
             false
         }
@@ -180,6 +210,74 @@ class FirebaseCartManager {
                 .await()
 
             true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun updateCartItemConfigById(
+        documentId: String,
+        newAddOns: List<String>,
+        newRemovals: List<String>
+    ): Boolean {
+        return try {
+            val user = auth.currentUser ?: return false
+
+            val cartCollection = firestore.collection("users")
+                .document(user.uid)
+                .collection("cart")
+
+            val currentDoc = cartCollection.document(documentId).get().await()
+            if (!currentDoc.exists()) return false
+
+            val foodName = currentDoc.getString("foodName") ?: ""
+            val basePrice = currentDoc.getDouble("basePrice") ?: 0.0
+            val imagesRes = currentDoc.getLong("imagesRes")?.toInt() ?: 0
+            val foodId = currentDoc.getString("foodId")
+            val currentQty = currentDoc.getLong("foodQuantity")?.toInt() ?: 1
+
+            val addOnsKey = newAddOns.sorted().joinToString(",")
+            val removalsKey = newRemovals.sorted().joinToString(",")
+            val newConfigKey = listOf(
+                foodName,
+                basePrice.toString(),
+                addOnsKey,
+                removalsKey,
+                imagesRes.toString(),
+                foodId ?: ""
+            ).joinToString("|")
+
+            // Check if another doc already has this configuration
+            val existingQuery = cartCollection
+                .whereEqualTo("configKey", newConfigKey)
+                .get()
+                .await()
+
+            val existingDoc = existingQuery.documents.firstOrNull { it.id != documentId }
+
+            if (existingDoc != null) {
+                // Merge quantities to the existing doc, delete the current one
+                val existingQty = existingDoc.getLong("foodQuantity")?.toInt() ?: 1
+                val mergedQty = existingQty + currentQty
+                cartCollection.document(existingDoc.id)
+                    .update("foodQuantity", mergedQty)
+                    .await()
+
+                cartCollection.document(documentId).delete().await()
+                true
+            } else {
+                // Update current document with new configuration
+                cartCollection.document(documentId)
+                    .update(
+                        mapOf(
+                            "foodAddOns" to newAddOns,
+                            "foodRemovals" to newRemovals,
+                            "configKey" to newConfigKey
+                        )
+                    )
+                    .await()
+                true
+            }
         } catch (e: Exception) {
             false
         }

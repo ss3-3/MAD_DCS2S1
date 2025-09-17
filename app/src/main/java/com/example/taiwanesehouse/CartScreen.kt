@@ -157,6 +157,18 @@ fun CartScreen(
                                 }
                             }
                         },
+                        onEdit = { newAddOns, newRemovals ->
+                            scope.launch {
+                                val success = cartManager.updateCartItemConfigById(
+                                    documentId = item.documentId,
+                                    newAddOns = newAddOns,
+                                    newRemovals = newRemovals
+                                )
+                                if (!success) {
+                                    Toast.makeText(context, "Failed to update item", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
                         onRemove = {
                             scope.launch {
                                 val success = cartManager.removeFromCartById(item.documentId)
@@ -241,6 +253,7 @@ fun CartScreen(
 fun CartItemCard(
     cartItem: CartItem,
     onQuantityChange: (Int) -> Unit,
+    onEdit: (newAddOns: List<String>, newRemovals: List<String>) -> Unit,
     onRemove: () -> Unit
 ) {
     Card(
@@ -309,6 +322,26 @@ fun CartItemCard(
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Edit button
+                        TextButton(
+                            onClick = { 
+                                // Simple quick-edit: toggle Egg/Vegetable add-on for demo; replace with a full dialog if needed
+                                val currentAddOns = cartItem.foodAddOns.toMutableList()
+                                val currentRemovals = cartItem.foodRemovals.toMutableList()
+                                val options = listOf("Egg", "Vegetable")
+                                // For now, just flip Egg
+                                if (currentAddOns.contains("Egg")) currentAddOns.remove("Egg") else currentAddOns.add("Egg")
+                                onEdit(currentAddOns, currentRemovals)
+                            },
+                            modifier = Modifier.size(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = "✏️",
+                                fontSize = 16.sp
+                            )
+                        }
+
                         // Decrease quantity button with emoji
                         TextButton(
                             onClick = { onQuantityChange(cartItem.foodQuantity - 1) },
