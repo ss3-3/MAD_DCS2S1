@@ -39,10 +39,12 @@ class FirebaseCartManager {
             .document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
+                    android.util.Log.e("FirebaseCartManager", "Error listening to user document: ${error.message}")
                     return@addSnapshotListener
                 }
 
-                val coins = snapshot?.getLong("memberCoins")?.toInt() ?: 0
+                val coins = snapshot?.getLong("coins")?.toInt() ?: 0
+                android.util.Log.d("FirebaseCartManager", "User $userId memberCoins: $coins")
                 _memberCoins.value = coins
             }
     }

@@ -68,6 +68,7 @@ fun FeedbackScreen(navController: NavController) {
     var canSubmitFeedback by remember { mutableStateOf(true) }
     var remainingSubmissions by remember { mutableStateOf(3) }
     var isOnline by remember { mutableStateOf(true) }
+    var isCheckingNetwork by remember { mutableStateOf(false) }
 
     // Form states
     var rating by rememberSaveable { mutableIntStateOf(0) }
@@ -89,11 +90,15 @@ fun FeedbackScreen(navController: NavController) {
 
     // Function to check actual network connectivity
     fun isNetworkAvailable(context: Context): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val networkCapabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = connectivityManager.activeNetwork ?: return false
+            val networkCapabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        } catch (e: Exception) {
+            false
+        }
     }
 
     // Function to check if exception is network-related
@@ -115,12 +120,26 @@ fun FeedbackScreen(navController: NavController) {
         }
     }
 
-    // Rate limiting check function
+    // Improved rate limiting check with better error handling
     suspend fun checkRateLimit() {
+        if (currentUser == null) {
+            canSubmitFeedback = true
+            remainingSubmissions = 3
+            return
+        }
+
         try {
+            isCheckingNetwork = true
+
+            // Test Firebase connectivity with a simple read
+            firestore.collection("feedback")
+                .limit(1)
+                .get()
+                .await()
+
             val oneWeekAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000)
             val recentFeedbacks = firestore.collection("feedback")
-                .whereEqualTo("userId", currentUser?.uid)
+                .whereEqualTo("userId", currentUser.uid)
                 .whereGreaterThan("timestamp", oneWeekAgo)
                 .get()
                 .await()
@@ -128,32 +147,42 @@ fun FeedbackScreen(navController: NavController) {
             val submissionCount = recentFeedbacks.size()
             remainingSubmissions = maxOf(0, 3 - submissionCount)
             canSubmitFeedback = remainingSubmissions > 0
-
-            // Successfully connected to Firebase - set online to true
             isOnline = true
+
         } catch (e: Exception) {
-            // Only set offline if it's actually a network issue AND we can't reach the network
-            if (isNetworkException(e) && !isNetworkAvailable(context)) {
+            println("Rate limit check error: ${e.message}")
+
+            if (isNetworkException(e) || !isNetworkAvailable(context)) {
                 isOnline = false
+                canSubmitFeedback = false
             } else {
-                // Firebase error but we have internet - keep online status true
+                // Firebase error but we have internet - be more permissive
                 isOnline = true
                 canSubmitFeedback = true
                 remainingSubmissions = 3
+
+                // Log the error but don't show to user unless it's critical
+                println("Firebase error but network available: ${e.localizedMessage}")
             }
+        } finally {
+            isCheckingNetwork = false
         }
     }
 
-    // Load user's feedback history function
+    // Improved feedback history loading with better error handling
     suspend fun loadUserFeedbackHistory() {
-        if (currentUser == null) return
+        if (currentUser == null) {
+            userFeedbackList = emptyList()
+            return
+        }
 
         try {
             isLoadingHistory = true
+
             val feedbacks = firestore.collection("feedback")
                 .whereEqualTo("userId", currentUser.uid)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
-                .limit(20)
+                .limit(50) // Increased limit
                 .get()
                 .await()
 
@@ -171,37 +200,51 @@ fun FeedbackScreen(navController: NavController) {
                         status = doc.getString("status") ?: "pending"
                     )
                 } catch (e: Exception) {
+                    println("Error parsing feedback document ${doc.id}: ${e.message}")
                     null
                 }
             }
 
-            // Successfully loaded from Firebase - set online to true
             isOnline = true
+
         } catch (e: Exception) {
-            // Only set offline for actual network issues AND when we can't reach the network
-            if (isNetworkException(e) && !isNetworkAvailable(context)) {
+            println("Load feedback history error: ${e.message}")
+
+            if (isNetworkException(e) || !isNetworkAvailable(context)) {
                 isOnline = false
+                // Show a snackbar instead of throwing error
+                snackbarHostState.showSnackbar("No internet connection. Please check your network.")
             } else {
-                // Firebase error but we have internet connection - keep online status true
                 isOnline = true
-                snackbarHostState.showSnackbar("Error loading feedback history: ${e.localizedMessage}")
+                snackbarHostState.showSnackbar("Unable to load feedback history. Please try again.")
             }
         } finally {
             isLoadingHistory = false
         }
     }
 
-    // Check network and sync on screen load
+    // Initial setup when screen loads
     LaunchedEffect(Unit) {
-        // Check network status every 10 seconds
+        val networkStatus = isNetworkAvailable(context)
+        isOnline = networkStatus
+
+        if (networkStatus && currentUser != null) {
+            try {
+                checkRateLimit()
+            } catch (e: Exception) {
+                println("Initial rate limit check failed: ${e.message}")
+            }
+        }
+    }
+
+    // Network monitoring effect
+    LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(10000)
+            kotlinx.coroutines.delay(15000) // Check every 15 seconds
             val currentNetworkStatus = isNetworkAvailable(context)
 
-            // If we detect network is back online, reset the status
             if (!isOnline && currentNetworkStatus) {
                 isOnline = true
-                // Optionally reload data when coming back online
                 if (currentUser != null) {
                     try {
                         checkRateLimit()
@@ -209,40 +252,41 @@ fun FeedbackScreen(navController: NavController) {
                             loadUserFeedbackHistory()
                         }
                     } catch (e: Exception) {
-                        // Handle errors silently for background refresh
+                        // Handle silently for background refresh
                     }
                 }
+            } else if (isOnline && !currentNetworkStatus) {
+                isOnline = false
             }
         }
     }
 
-    // Check network connectivity when entering form screen - MOVED OUTSIDE when()
+    // Load history when navigating to history screen
     LaunchedEffect(currentScreen) {
-        if (currentScreen == "form") {
-            val networkStatus = isNetworkAvailable(context)
-            println("DEBUG: Network check result: $networkStatus") // Debug log
-            isOnline = networkStatus
+        if (currentScreen == "history" && currentUser != null && isOnline) {
+            loadUserFeedbackHistory()
         }
     }
 
-    // Submit feedback function
+    // Improved submit feedback function
     fun submitFeedback() {
         scope.launch {
             try {
                 isLoading = true
                 errorMessage = ""
 
-                // Check network connectivity first
-                if (!isNetworkAvailable(context)) {
+                // Network connectivity check
+                val networkAvailable = isNetworkAvailable(context)
+                if (!networkAvailable) {
                     isOnline = false
                     errorMessage = "No internet connection. Please check your network and try again."
                     return@launch
                 }
 
-                // Re-check rate limit before submission
+                // Re-check rate limit
                 checkRateLimit()
-                if (!canSubmitFeedback) {
-                    errorMessage = "You've reached the weekly feedback limit. Please try again next week."
+                if (!canSubmitFeedback && isOnline) {
+                    errorMessage = "You've reached the weekly feedback limit (3 submissions). Please try again next week."
                     return@launch
                 }
 
@@ -252,18 +296,23 @@ fun FeedbackScreen(navController: NavController) {
                     return@launch
                 }
 
-                if (feedbackTitle.isBlank()) {
+                if (feedbackTitle.trim().isEmpty()) {
                     errorMessage = "Please enter a feedback title"
                     return@launch
                 }
 
-                if (feedbackMessage.isBlank()) {
+                if (feedbackMessage.trim().isEmpty()) {
                     errorMessage = "Please enter your feedback message"
                     return@launch
                 }
 
-                if (feedbackMessage.length < 10) {
+                if (feedbackMessage.trim().length < 10) {
                     errorMessage = "Feedback message should be at least 10 characters"
+                    return@launch
+                }
+
+                if (feedbackMessage.length > 500) {
+                    errorMessage = "Feedback message cannot exceed 500 characters"
                     return@launch
                 }
 
@@ -283,10 +332,10 @@ fun FeedbackScreen(navController: NavController) {
                     "appVersion" to "1.0.0"
                 )
 
-                try {
-                    // Submit to Firestore
-                    firestore.collection("feedback").add(feedbackData).await()
+                // Submit to Firestore with timeout handling
+                val documentRef = firestore.collection("feedback").add(feedbackData).await()
 
+                if (documentRef != null) {
                     // Reset form
                     rating = 0
                     feedbackType = "general"
@@ -298,22 +347,21 @@ fun FeedbackScreen(navController: NavController) {
                     checkRateLimit()
                     loadUserFeedbackHistory()
 
-                    snackbarHostState.showSnackbar("Feedback submitted successfully!")
+                    snackbarHostState.showSnackbar("Feedback submitted successfully! Thank you for your input.")
                     currentScreen = "history"
-
-                } catch (e: Exception) {
-                    if (isNetworkException(e)) {
-                        isOnline = false
-                        // Try to save locally if you have local storage implementation
-                        errorMessage = "Network error. Please check your connection and try again."
-                    } else {
-                        // Firebase/server error but we have internet
-                        errorMessage = "Failed to submit feedback: ${e.localizedMessage ?: "Please try again later"}"
-                    }
+                } else {
+                    errorMessage = "Failed to submit feedback. Please try again."
                 }
 
             } catch (e: Exception) {
-                errorMessage = "Failed to submit feedback: ${e.localizedMessage ?: "Unknown error"}"
+                println("Submit feedback error: ${e.message}")
+
+                if (isNetworkException(e)) {
+                    isOnline = false
+                    errorMessage = "Network error. Please check your internet connection and try again."
+                } else {
+                    errorMessage = "Failed to submit feedback: ${e.localizedMessage ?: "Unknown error occurred"}"
+                }
             } finally {
                 isLoading = false
             }
@@ -339,18 +387,19 @@ fun FeedbackScreen(navController: NavController) {
                             color = Color.Black
                         )
 
-                        // Offline indicator
-                        if (!isOnline) {
+                        // Network status indicator
+                        if (!isOnline || isCheckingNetwork) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Card(
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color.Red.copy(alpha = 0.1f)
+                                    containerColor = if (isCheckingNetwork) Color.Yellow.copy(alpha = 0.2f)
+                                    else Color.Red.copy(alpha = 0.1f)
                                 )
                             ) {
                                 Text(
-                                    text = "OFFLINE",
+                                    text = if (isCheckingNetwork) "CHECKING" else "OFFLINE",
                                     fontSize = 10.sp,
-                                    color = Color.Red,
+                                    color = if (isCheckingNetwork) Color(0xFFFF8F00) else Color.Red,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
@@ -362,7 +411,10 @@ fun FeedbackScreen(navController: NavController) {
                     IconButton(
                         onClick = {
                             when (currentScreen) {
-                                "form", "history" -> currentScreen = "main"
+                                "form", "history" -> {
+                                    currentScreen = "main"
+                                    errorMessage = "" // Clear any error messages
+                                }
                                 else -> navController.popBackStack()
                             }
                         }
@@ -408,13 +460,17 @@ fun FeedbackScreen(navController: NavController) {
                                 color = Color.Black
                             )
                             Text(
-                                text = if (isOnline) {
-                                    "Share your thoughts and help us improve"
-                                } else {
-                                    "No internet connection • Connect to submit feedback"
+                                text = when {
+                                    isCheckingNetwork -> "Checking connection..."
+                                    isOnline -> "Share your thoughts and help us improve"
+                                    else -> "No internet connection • Connect to submit feedback"
                                 },
                                 fontSize = 14.sp,
-                                color = if (isOnline) Color.Gray else Color.Red,
+                                color = when {
+                                    isCheckingNetwork -> Color(0xFFFF8F00)
+                                    isOnline -> Color.Gray
+                                    else -> Color.Red
+                                },
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
@@ -424,26 +480,38 @@ fun FeedbackScreen(navController: NavController) {
                     // Network status card
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isOnline) Color(0xFFF0F8FF) else Color(0xFFFFF0F0)
+                            containerColor = when {
+                                isCheckingNetwork -> Color(0xFFFFF8E1)
+                                isOnline -> Color(0xFFF0F8FF)
+                                else -> Color(0xFFFFF0F0)
+                            }
                         )
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Text(
-                                text = if (isOnline) "🟢 Online" else "🔴 Offline",
+                                text = when {
+                                    isCheckingNetwork -> "⚡ Checking Connection"
+                                    isOnline -> "🟢 Online"
+                                    else -> "🔴 Offline"
+                                },
                                 fontWeight = FontWeight.Medium,
-                                color = if (isOnline) Color(0xFF1976D2) else Color.Red
+                                color = when {
+                                    isCheckingNetwork -> Color(0xFFFF8F00)
+                                    isOnline -> Color(0xFF1976D2)
+                                    else -> Color.Red
+                                }
                             )
 
-                            if (isOnline && currentUser != null) {
+                            if (isOnline && currentUser != null && !isCheckingNetwork) {
                                 Text(
                                     text = "You can submit $remainingSubmissions more feedback(s) this week",
                                     fontSize = 12.sp,
                                     color = Color.Gray,
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
-                            } else if (!isOnline) {
+                            } else if (!isOnline && !isCheckingNetwork) {
                                 Text(
                                     text = "Please check your internet connection to submit feedback.",
                                     fontSize = 12.sp,
@@ -456,7 +524,10 @@ fun FeedbackScreen(navController: NavController) {
 
                     // Action buttons
                     Button(
-                        onClick = { currentScreen = "form" },
+                        onClick = {
+                            currentScreen = "form"
+                            errorMessage = "" // Clear any previous errors
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(60.dp),
@@ -465,7 +536,7 @@ fun FeedbackScreen(navController: NavController) {
                             containerColor = Color(0xFFFFC107),
                             disabledContainerColor = Color.Gray
                         ),
-                        enabled = canSubmitFeedback && isOnline
+                        enabled = canSubmitFeedback && isOnline && !isCheckingNetwork
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -474,20 +545,30 @@ fun FeedbackScreen(navController: NavController) {
                                 text = "Submit New Feedback",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (canSubmitFeedback && isOnline) Color.Black else Color.White
+                                color = if (canSubmitFeedback && isOnline && !isCheckingNetwork) Color.Black else Color.White
                             )
-                            if (!canSubmitFeedback && isOnline) {
-                                Text(
-                                    text = "Weekly limit reached",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                            } else if (!isOnline) {
-                                Text(
-                                    text = "No internet connection",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
+                            when {
+                                isCheckingNetwork -> {
+                                    Text(
+                                        text = "Checking connection...",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                                !canSubmitFeedback && isOnline -> {
+                                    Text(
+                                        text = "Weekly limit reached (3/3)",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                                !isOnline -> {
+                                    Text(
+                                        text = "No internet connection",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
                             }
                         }
                     }
@@ -496,14 +577,15 @@ fun FeedbackScreen(navController: NavController) {
                         OutlinedButton(
                             onClick = {
                                 currentScreen = "history"
-                                if (isOnline) {
+                                if (isOnline && !isCheckingNetwork) {
                                     scope.launch { loadUserFeedbackHistory() }
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isCheckingNetwork
                         ) {
                             Text(
                                 text = "View My Feedback History",
@@ -524,7 +606,7 @@ fun FeedbackScreen(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    // Offline indicator in history
+                    // Connection status indicator in history
                     if (!isOnline) {
                         item {
                             Card(
@@ -545,10 +627,24 @@ fun FeedbackScreen(navController: NavController) {
                     if (isLoadingHistory) {
                         item {
                             Box(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator()
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFFFC107)
+                                    )
+                                    Text(
+                                        text = "Loading your feedback...",
+                                        fontSize = 14.sp,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
                             }
                         }
                     } else if (userFeedbackList.isEmpty()) {
@@ -574,12 +670,45 @@ fun FeedbackScreen(navController: NavController) {
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(top = 8.dp)
                                     )
+
+                                    if (isOnline && currentUser != null) {
+                                        Button(
+                                            onClick = { currentScreen = "form" },
+                                            modifier = Modifier.padding(top = 16.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFFFFC107)
+                                            )
+                                        ) {
+                                            Text(
+                                                text = "Submit Your First Feedback",
+                                                color = Color.Black
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     } else {
                         items(userFeedbackList) { feedback ->
                             FeedbackHistoryCard(feedback = feedback)
+                        }
+
+                        // Refresh button at the bottom
+                        if (isOnline && !isLoadingHistory) {
+                            item {
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            loadUserFeedbackHistory()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+                                    Text("Refresh History")
+                                }
+                            }
                         }
                     }
                 }
@@ -616,7 +745,7 @@ fun FeedbackScreen(navController: NavController) {
                                     modifier = Modifier.padding(bottom = 24.dp)
                                 )
 
-                                // Show network status at top of form
+                                // Network status warning
                                 if (!isOnline) {
                                     Card(
                                         colors = CardDefaults.cardColors(
@@ -630,6 +759,29 @@ fun FeedbackScreen(navController: NavController) {
                                             text = "🔴 No internet connection. Please connect to wifi or mobile data to submit feedback.",
                                             fontSize = 12.sp,
                                             color = Color.Red,
+                                            modifier = Modifier.padding(12.dp)
+                                        )
+                                    }
+                                }
+
+                                // Rate limiting warning
+                                if (isOnline && currentUser != null && remainingSubmissions <= 1) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = Color(0xFFFFF8E1)
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp)
+                                    ) {
+                                        Text(
+                                            text = if (remainingSubmissions == 0) {
+                                                "⚠️ You've reached the weekly feedback limit (3 submissions). Please try again next week."
+                                            } else {
+                                                "⚠️ You have $remainingSubmissions feedback submission remaining this week."
+                                            },
+                                            fontSize = 12.sp,
+                                            color = Color(0xFFE65100),
                                             modifier = Modifier.padding(12.dp)
                                         )
                                     }
@@ -653,7 +805,12 @@ fun FeedbackScreen(navController: NavController) {
                                 ) {
                                     repeat(5) { index ->
                                         IconButton(
-                                            onClick = { rating = index + 1 },
+                                            onClick = {
+                                                rating = index + 1
+                                                if (errorMessage.isNotEmpty()) {
+                                                    errorMessage = ""
+                                                }
+                                            },
                                             modifier = Modifier.size(48.dp)
                                         ) {
                                             Icon(
@@ -720,7 +877,8 @@ fun FeedbackScreen(navController: NavController) {
                                     singleLine = true,
                                     shape = RoundedCornerShape(8.dp),
                                     enabled = !isLoading,
-                                    placeholder = { Text("Brief summary of your feedback") }
+                                    placeholder = { Text("Brief summary of your feedback") },
+                                    isError = errorMessage.contains("title", ignoreCase = true)
                                 )
 
                                 // Feedback message
@@ -740,7 +898,8 @@ fun FeedbackScreen(navController: NavController) {
                                     maxLines = 8,
                                     shape = RoundedCornerShape(8.dp),
                                     enabled = !isLoading,
-                                    placeholder = { Text("Please share your detailed feedback, suggestions, or concerns...") }
+                                    placeholder = { Text("Please share your detailed feedback, suggestions, or concerns...") },
+                                    isError = errorMessage.contains("message", ignoreCase = true)
                                 )
 
                                 // Character count
@@ -796,8 +955,10 @@ fun FeedbackScreen(navController: NavController) {
                                 Button(
                                     onClick = {
                                         // Double check network before submitting
-                                        isOnline = isNetworkAvailable(context)
-                                        if (isOnline) {
+                                        val networkStatus = isNetworkAvailable(context)
+                                        isOnline = networkStatus
+
+                                        if (networkStatus) {
                                             submitFeedback()
                                         } else {
                                             errorMessage = "No internet connection. Please check your network and try again."
@@ -813,19 +974,35 @@ fun FeedbackScreen(navController: NavController) {
                                     ),
                                     enabled = !isLoading &&
                                             rating > 0 &&
-                                            feedbackTitle.isNotEmpty() &&
-                                            feedbackMessage.isNotEmpty() &&
+                                            feedbackTitle.trim().isNotEmpty() &&
+                                            feedbackMessage.trim().isNotEmpty() &&
                                             feedbackMessage.length <= 500 &&
-                                            isOnline
+                                            isOnline &&
+                                            canSubmitFeedback
                                 ) {
                                     if (isLoading) {
-                                        CircularProgressIndicator(
-                                            color = Color.Black,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                        Row(
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            CircularProgressIndicator(
+                                                color = Color.Black,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Submitting...",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     } else {
                                         Text(
-                                            text = if (isOnline) "Submit Feedback" else "No Internet Connection",
+                                            text = when {
+                                                !isOnline -> "No Internet Connection"
+                                                !canSubmitFeedback -> "Weekly Limit Reached"
+                                                else -> "Submit Feedback"
+                                            },
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -836,7 +1013,10 @@ fun FeedbackScreen(navController: NavController) {
 
                                 // Cancel button
                                 OutlinedButton(
-                                    onClick = { currentScreen = "main" },
+                                    onClick = {
+                                        currentScreen = "main"
+                                        errorMessage = "" // Clear error message when canceling
+                                    },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(50.dp),
@@ -883,6 +1063,7 @@ fun FeedbackHistoryCard(feedback: FeedbackItem) {
         "pending" -> Color(0xFFFF9800)
         "reviewed" -> Color(0xFF2196F3)
         "resolved" -> Color(0xFF4CAF50)
+        "rejected" -> Color(0xFFF44336)
         else -> Color.Gray
     }
 
@@ -962,7 +1143,11 @@ fun FeedbackHistoryCard(feedback: FeedbackItem) {
 
             // Timestamp
             Text(
-                text = dateFormat.format(Date(feedback.timestamp)),
+                text = try {
+                    dateFormat.format(Date(feedback.timestamp))
+                } catch (e: Exception) {
+                    "Date unavailable"
+                },
                 fontSize = 12.sp,
                 color = Color.Gray
             )

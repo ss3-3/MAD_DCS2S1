@@ -76,4 +76,9 @@ class FoodItemViewModel(application: Application) : AndroidViewModel(application
             repository.deleteFoodItem(itemId)
         }
     }
+
+    // Debug method to check database status
+    suspend fun getDatabaseStatus(): String {
+        return repository.getDatabaseStatus()
+    }
 }

@@ -34,9 +34,9 @@ class UserRepository @Inject constructor(
             val currentCoins = getCurrentUserCoins(userId)
             val newCoinsTotal = currentCoins + coinsToAdd
 
-            // Update Firebase first (align field name with cart: memberCoins)
+            // Update Firebase first
             usersCollection.document(userId)
-                .update("memberCoins", newCoinsTotal)
+                .update("coins", newCoinsTotal)
                 .await()
 
             // Update local database
@@ -62,13 +62,13 @@ class UserRepository @Inject constructor(
 
             val newCoinsTotal = currentCoins - coinsToDeduct
 
-            // Update Firebase first (align field name with cart: memberCoins)
+            // Update Firebase first
             usersCollection.document(userId)
-                .update("memberCoins", newCoinsTotal)
+                .update("coins", newCoinsTotal)
                 .await()
 
             // Update local database
-            userDao.updateUserCoins(userId, newCoinsTotal)
+            userDao.updateUserCoins(userId, newCoinsTotal) // changes
 
             Log.d(TAG, "Deducted $coinsToDeduct coins from user $userId. New total: $newCoinsTotal")
             Result.success(true)

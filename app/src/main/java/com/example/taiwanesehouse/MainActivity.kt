@@ -28,8 +28,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
-        // Initialize database with food items
-        DatabaseInitializer.initializeDatabase(this)
+        // Initialize database with food items synchronously to ensure data is ready
+        DatabaseInitializer.initializeDatabaseSync(this)
         enableEdgeToEdge()
         setContent {
             TaiwaneseHouseTheme {

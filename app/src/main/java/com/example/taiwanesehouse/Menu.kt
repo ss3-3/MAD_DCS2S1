@@ -16,12 +16,12 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,8 +38,19 @@ import com.example.taiwanesehouse.viewmodel.FoodItemViewModel
 fun CategoryMenu(category: String, navController: NavController, viewModel: FoodItemViewModel) {
     val items by viewModel.getFoodItemsByCategory(category).collectAsState(initial = emptyList())
 
+    // Sort by ID using natural order (prefix + numeric part), e.g., R1, R2, R10
+    val sortedItems = remember(items) {
+        items.sortedWith(
+            compareBy<com.example.taiwanesehouse.database.entities.FoodItemEntity>(
+                { it.id.takeWhile { ch -> ch.isLetter() }.lowercase() },
+                { it.id.dropWhile { ch -> ch.isLetter() }.toIntOrNull() ?: Int.MAX_VALUE },
+                { it.id }
+            )
+        )
+    }
+
     LazyColumn {
-        items(items) { item ->
+        items(sortedItems) { item ->
             DatabaseFoodCard(item = item, onAddClick = {}, navController = navController)
         }
     }
@@ -139,7 +150,7 @@ fun MenuScreenWithDatabase(navController: NavController) {
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Rice", "Noodles", "Not Too Full", "Snacks", "Drinks")
-    var searchText by remember { mutableStateOf("") }
+    var searchText by rememberSaveable { mutableStateOf("") }
     val cartManager = remember { FirebaseCartManager() }
     val cartItems by cartManager.cartItems.collectAsState()
     val cartItemCount = cartItems.sumOf { it.foodQuantity }

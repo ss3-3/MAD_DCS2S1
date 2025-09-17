@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.taiwanesehouse.cart.CartDataManager
 import com.example.taiwanesehouse.database.AppDatabase
 import com.example.taiwanesehouse.enumclass.Screen
+import com.example.taiwanesehouse.order.OrderDataManager
 import com.example.taiwanesehouse.payment.FirebasePaymentManager
 import com.example.taiwanesehouse.viewmodel.PaymentViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -78,6 +79,9 @@ fun CardPaymentPage(
 
                                 val processResult = paymentManager.processPayment(payment, details)
                                 if (processResult.isSuccess) {
+                                    //Clear confirmed order
+                                    OrderDataManager.clear()
+
                                     // Award coins: 1 coin per RM1 spent (floor)
                                     val coinsEarned = kotlin.math.floor(amount).toInt()
                                     val userId = auth.currentUser?.uid
@@ -91,6 +95,7 @@ fun CardPaymentPage(
 
                                     Toast.makeText(context, "Payment successful", Toast.LENGTH_SHORT).show()
                                     CartDataManager.clear()
+                                    OrderDataManager.clear()
                                     navController.navigate(Screen.Menu.name)
                                 } else {
                                     Toast.makeText(context, "Payment failed", Toast.LENGTH_SHORT).show()

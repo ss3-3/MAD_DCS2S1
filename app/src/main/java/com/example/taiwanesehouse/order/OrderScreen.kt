@@ -81,8 +81,15 @@ fun OrderScreenWithDatabase(
     // Load food item from database
     LaunchedEffect(foodId) {
         try {
+            // Debug: Check database status
+            val dbStatus = foodItemViewModel.getDatabaseStatus()
+            android.util.Log.d("OrderScreen", "Database status: $dbStatus")
+            
             foodItem = foodItemViewModel.getFoodItemById(foodId)
             isLoadingFood = false
+            if (foodItem == null) {
+                Toast.makeText(context, "Food item not found: $foodId. DB Status: $dbStatus", Toast.LENGTH_LONG).show()
+            }
         } catch (e: Exception) {
             isLoadingFood = false
             Toast.makeText(context, "Error loading food item: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -122,14 +129,16 @@ fun OrderScreenWithDatabase(
     }
 
     foodItem?.let { item ->
+        val isNotTooFull = item.category.equals("Not Too Full", ignoreCase = true)
+        val isSnack = item.category.equals("Snacks", ignoreCase = true)
         val isDrink = item.category.equals("Drinks", ignoreCase = true)
         val eggPrice = 1.0
         val vegetablePrice = 2.0
-        val totalPrice = (item.price + (if (!isDrink && eggAddOn) eggPrice else 0.0) +
-                (if (!isDrink && vegetableAddOn) vegetablePrice else 0.0)) * foodQuantity
+        val totalPrice = (item.price + (if (!isNotTooFull && !isSnack && !isDrink && eggAddOn) eggPrice else 0.0) +
+                (if (!isNotTooFull && !isSnack && !isDrink && vegetableAddOn) vegetablePrice else 0.0)) * foodQuantity
 
         LaunchedEffect(item.id) {
-            if (isDrink) {
+            if (isNotTooFull || isSnack || isDrink) {
                 eggAddOn = false
                 vegetableAddOn = false
                 removeSpringOnion = false
@@ -321,8 +330,8 @@ fun OrderScreenWithDatabase(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Customization Box (hidden for Drinks category)
-                if (!isDrink) {
+                // Customization Box (hidden for Not Too Full Snacks and Drinks category)
+                if (!isNotTooFull && !isSnack && !isDrink) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -487,9 +496,9 @@ fun OrderScreenWithDatabase(
                         }
                     }
                 } else {
-                    // Drinks: show note that customization is not available
+                    // Not Too Full/Snacks/Drinks: show note that customization is not available
                     Text(
-                        text = "No customization available for drinks.",
+                        text = "No customization available for this category.",
                         color = Color.Gray,
                         fontSize = 14.sp
                     )

@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.taiwanesehouse.BottomNavigationBar
 import com.example.taiwanesehouse.FirebaseCartManager
 import com.example.taiwanesehouse.admin.FirebaseOrderManager
 import com.example.taiwanesehouse.cart.CartDataManager
@@ -153,25 +156,65 @@ fun OrderCheckoutScreen(
     }
 
     // Show empty cart message
+// Show empty cart message with BottomNavigationBar
     if (cartItems.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "🛒 Your cart is empty",
-                    fontSize = 18.sp,
-                    color = Color.Gray
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "🧾 Checkout",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 22.sp
+                                ),
+                                color = Color.Black
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = { navController.popBackStack() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.Black
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xFFFFC107)
+                    )
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { navController.navigate(Screen.Menu.name) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
+            },
+            bottomBar = { BottomNavigationBar(navController = navController) }
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Continue Shopping", color = Color.White)
+                    Text(
+                        text = "\uD83E\uDDFE Your order is empty",
+                        fontSize = 18.sp,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { navController.navigate(Screen.Menu.name) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107))
+                    ) {
+                        Text("Continue explore menu \uD83C\uDF7D\uFE0F", color = Color.White)
+                    }
                 }
             }
         }
@@ -391,14 +434,14 @@ fun OrderCheckoutScreen(
                         Text("📱 E-Wallet (TNG/GrabPay)", fontSize = 16.sp)
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = selectedPaymentMethod == "online",
-                            onClick = { selectedPaymentMethod = "online" }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("🌐 Online Payment", fontSize = 16.sp)
-                    }
+//                    Row(verticalAlignment = Alignment.CenterVertically) {
+//                        RadioButton(
+//                            selected = selectedPaymentMethod == "online",
+//                            onClick = { selectedPaymentMethod = "online" }
+//                        )
+//                        Spacer(modifier = Modifier.width(8.dp))
+//                        Text("🌐 Online Payment", fontSize = 16.sp)
+//                    }
                 }
             }
 
