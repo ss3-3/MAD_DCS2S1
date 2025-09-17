@@ -137,9 +137,9 @@ object OrderDataManager {
     }
 
     // Voucher support
-    sealed class Voucher(val code: String) {
-        data class Flat(val amount: Double, val minSpend: Double, val label: String): Voucher(label)
-        data class Percent(val percent: Double, val cap: Double, val minSpend: Double, val label: String): Voucher(label)
+    sealed class Voucher(val code: String, val minSpend: Double) {
+        data class Flat(val amount: Double, val minimumSpend: Double, val label: String): Voucher(label, minimumSpend)
+        data class Percent(val percent: Double, val cap: Double, val minimumSpend: Double, val label: String): Voucher(label, minimumSpend)
     }
 
     fun setVoucher(newVoucher: Voucher?) {
