@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -144,7 +145,7 @@ fun OrderCheckoutScreen(
 
     // Only payment selection; no customer info for dine-in/takeaway app
     var customerPhone by remember { mutableStateOf("") }
-    var selectedPaymentMethod by remember { mutableStateOf("cash") }
+    var selectedPaymentMethod by rememberSaveable { mutableStateOf("cash") }
     var phoneInput by remember { mutableStateOf("") }
 
     // Order confirmation dialog

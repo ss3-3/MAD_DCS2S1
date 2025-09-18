@@ -54,16 +54,18 @@ fun NavigationApp(context: ComponentActivity) {
         composable(Screen.Menu.name) { MenuScreenWithDatabase(navController) }
 
         composable(
-            route = "order/{foodId}",
+            route = "order/{foodId}?editDocId={editDocId}",
             arguments = listOf(
-                navArgument("foodId") { type = NavType.StringType }
+                navArgument("foodId") { type = NavType.StringType },
+                navArgument("editDocId") { type = NavType.StringType; nullable = true; defaultValue = null }
             )
         ) { backStackEntry ->
             val foodId = backStackEntry.arguments?.getString("foodId") ?: ""
+            val editDocId = backStackEntry.arguments?.getString("editDocId")
             OrderScreenWithDatabase(
                 navController = navController,
-                foodId = foodId
-                // Remove the foodItemViewModel parameter - it will be created automatically
+                foodId = foodId,
+                editDocId = editDocId
             )
         }
 

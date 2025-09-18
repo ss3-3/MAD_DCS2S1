@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +66,7 @@ import kotlinx.coroutines.launch
 fun OrderScreenWithDatabase(
     navController: NavController,
     foodId: String,
+    editDocId: String? = null,
     cartManager: FirebaseCartManager = remember { FirebaseCartManager() }
 ) {
     // Get the AndroidViewModel using viewModel() composable - no manual initialization needed
@@ -97,15 +99,29 @@ fun OrderScreenWithDatabase(
     }
 
     // Local state for form
-    var foodQuantity by remember { mutableIntStateOf(1) }
-    var eggAddOn by remember { mutableStateOf(false) }
-    var vegetableAddOn by remember { mutableStateOf(false) }
-    var removeSpringOnion by remember { mutableStateOf(false) }
-    var removeVegetable by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
+    var foodQuantity by rememberSaveable { mutableIntStateOf(1) }
+    var eggAddOn by rememberSaveable { mutableStateOf(false) }
+    var vegetableAddOn by rememberSaveable { mutableStateOf(false) }
+    var removeSpringOnion by rememberSaveable { mutableStateOf(false) }
+    var removeVegetable by rememberSaveable { mutableStateOf(false) }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
 
     // Cart items for displaying cart count
     val cartItems by cartManager.cartItems.collectAsState()
+
+    // Prefill when editing
+    LaunchedEffect(editDocId, cartItems) {
+        if (!editDocId.isNullOrEmpty()) {
+            val editing = cartItems.firstOrNull { it.documentId == editDocId }
+            if (editing != null) {
+                foodQuantity = editing.foodQuantity
+                eggAddOn = editing.foodAddOns.any { it.equals("Egg", ignoreCase = true) }
+                vegetableAddOn = editing.foodAddOns.any { it.equals("Vegetable", ignoreCase = true) }
+                removeSpringOnion = editing.foodRemovals.any { it.equals("Spring Onion", ignoreCase = true) }
+                removeVegetable = editing.foodRemovals.any { it.equals("Vegetable", ignoreCase = true) }
+            }
+        }
+    }
 
     if (isLoadingFood) {
         Box(
@@ -541,29 +557,52 @@ fun OrderScreenWithDatabase(
                                     if (removeSpringOnion) removals.add("Spring Onion")
                                     if (removeVegetable) removals.add("Vegetable")
 
-                                    val cartItem = CartItem(
-                                        foodName = item.name,
-                                        basePrice = item.price,
-                                        foodQuantity = foodQuantity,
-                                        foodAddOns = addOns,
-                                        foodRemovals = removals,
-                                        imagesRes = item.imageRes
-                                    )
-
-                                    val success = cartManager.addToCart(cartItem)
+                                    val success = if (!editDocId.isNullOrEmpty()) {
+                                        cartManager.updateCartItemConfigById(
+                                            documentId = editDocId,
+                                            newAddOns = addOns,
+                                            newRemovals = removals
+                                        ) && cartManager.updateCartItemQuantityById(
+                                            documentId = editDocId,
+                                            newQuantity = foodQuantity
+                                        )
+                                    } else {
+                                        val cartItem = CartItem(
+                                            foodName = item.name,
+                                            basePrice = item.price,
+                                            foodQuantity = foodQuantity,
+                                            foodAddOns = addOns,
+                                            foodRemovals = removals,
+                                            imagesRes = item.imageRes,
+                                            foodId = item.id
+                                        )
+                                        cartManager.addToCart(cartItem)
+                                    }
 
                                     if (success) {
-                                        // Reset form after successful add
+                                        // Reset form after success
                                         foodQuantity = 1
                                         eggAddOn = false
                                         vegetableAddOn = false
                                         removeSpringOnion = false
                                         removeVegetable = false
 
-                                        Toast.makeText(context, "Added to cart! 🛒", Toast.LENGTH_SHORT).show()
-                                        navController.navigate(Screen.Menu.name)
+                                        Toast.makeText(
+                                            context,
+                                            if (!editDocId.isNullOrEmpty()) "Cart updated ✅" else "Added to cart! 🛒",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        if (!editDocId.isNullOrEmpty()) {
+                                            navController.navigate(Screen.Cart.name) { popUpTo(Screen.Cart.name) { inclusive = true } }
+                                        } else {
+                                            navController.navigate(Screen.Menu.name)
+                                        }
                                     } else {
-                                        Toast.makeText(context, "Failed to add to cart ❌", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            if (!editDocId.isNullOrEmpty()) "Failed to update cart ❌" else "Failed to add to cart ❌",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     }
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Error adding to cart: ${e.message}", Toast.LENGTH_SHORT).show()

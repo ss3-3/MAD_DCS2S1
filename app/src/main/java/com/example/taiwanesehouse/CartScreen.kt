@@ -157,15 +157,24 @@ fun CartScreen(
                                 }
                             }
                         },
-                        onEdit = { newAddOns, newRemovals ->
-                            scope.launch {
-                                val success = cartManager.updateCartItemConfigById(
-                                    documentId = item.documentId,
-                                    newAddOns = newAddOns,
-                                    newRemovals = newRemovals
-                                )
-                                if (!success) {
-                                    Toast.makeText(context, "Failed to update item", Toast.LENGTH_SHORT).show()
+                        onEdit = { _, _ ->
+                            // Navigate to Order screen to edit with full options
+                            val foodId = item.foodId ?: ""
+                            if (foodId.isNotEmpty()) {
+                                navController.navigate("order/$foodId?editDocId=${item.documentId}")
+                            } else {
+                                // Fallback: resolve by name from DB
+                                scope.launch {
+                                    try {
+                                        val found = foodItemViewModel.getFoodItemByName(item.foodName)
+                                        if (found != null) {
+                                            navController.navigate("order/${found.id}?editDocId=${item.documentId}")
+                                        } else {
+                                            Toast.makeText(context, "Missing food reference for editing", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Unable to open editor: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         },
