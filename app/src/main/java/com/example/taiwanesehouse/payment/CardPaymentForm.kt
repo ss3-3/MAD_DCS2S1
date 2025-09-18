@@ -21,11 +21,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.example.taiwanesehouse.viewmodel.PaymentViewModel
 
@@ -38,6 +43,8 @@ fun CardPaymentFormWithViewModel(
 ) {
     val context = LocalContext.current
     val cardDetails by viewModel.cardDetails.collectAsState()
+    var cardNumberFieldValue by remember { mutableStateOf(TextFieldValue()) }
+    var expiryFieldValue by remember { mutableStateOf(TextFieldValue()) }
 
     Column(
         modifier = Modifier
@@ -63,10 +70,16 @@ fun CardPaymentFormWithViewModel(
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
-                value = cardDetails.cardNumber,
-                onValueChange = { input ->
-                    val digits = input.filter { it.isDigit() }.take(19)
-                    val formatted = digits.chunked(4).joinToString(" ")
+                value = cardNumberFieldValue,
+                onValueChange = { newValue ->
+                    val digits = newValue.text.filter { it.isDigit() }
+                    val limitedDigits = digits.take(19)
+                    val formatted = limitedDigits.chunked(4).joinToString(" ")
+
+                    cardNumberFieldValue = TextFieldValue(
+                        text = formatted,
+                        selection = TextRange(formatted.length)
+                    )
                     viewModel.updateCardNumber(formatted)
                 },
                 label = { Text("Card Number") },
@@ -83,13 +96,20 @@ fun CardPaymentFormWithViewModel(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
-                    value = cardDetails.expiryDate,
-                    onValueChange = { input ->
-                        val digits = input.filter { it.isDigit() }.take(4)
+                    value = expiryFieldValue,
+                    onValueChange = { newValue ->
+                        val digits = newValue.text.filter { it.isDigit() }
+                        val limitedDigits = digits.take(4)
+
                         val formatted = when {
-                            digits.length <= 2 -> digits
-                            else -> "${digits.take(2)}/${digits.drop(2)}"
+                            limitedDigits.length <= 2 -> limitedDigits
+                            else -> "${limitedDigits.take(2)}/${limitedDigits.drop(2)}"
                         }
+
+                        expiryFieldValue = TextFieldValue(
+                            text = formatted,
+                            selection = TextRange(formatted.length)
+                        )
                         viewModel.updateExpiryDate(formatted)
                     },
                     label = { Text("Expiry") },

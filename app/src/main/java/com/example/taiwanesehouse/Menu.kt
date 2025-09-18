@@ -148,7 +148,7 @@ fun MenuScreenWithDatabase(navController: NavController) {
     // This will automatically handle the Application context
     val viewModel: FoodItemViewModel = viewModel()
 
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("Rice", "Noodles", "Not Too Full", "Snacks", "Drinks")
     var searchText by rememberSaveable { mutableStateOf("") }
     val cartManager = remember { FirebaseCartManager() }
