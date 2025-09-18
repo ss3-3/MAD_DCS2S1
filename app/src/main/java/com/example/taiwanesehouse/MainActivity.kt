@@ -33,14 +33,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TaiwaneseHouseTheme {
-                NavigationApp()
+                NavigationApp(this)
             }
         }
     }
 }
 
 @Composable
-fun NavigationApp() {
+fun NavigationApp(context: ComponentActivity) {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = Screen.Login.name) {
