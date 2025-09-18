@@ -157,6 +157,27 @@ fun CartScreen(
                                 }
                             }
                         },
+                        onEdit = { _, _ ->
+                            // Navigate to Order screen to edit with full options
+                            val foodId = item.foodId ?: ""
+                            if (foodId.isNotEmpty()) {
+                                navController.navigate("order/$foodId?editDocId=${item.documentId}")
+                            } else {
+                                // Fallback: resolve by name from DB
+                                scope.launch {
+                                    try {
+                                        val found = foodItemViewModel.getFoodItemByName(item.foodName)
+                                        if (found != null) {
+                                            navController.navigate("order/${found.id}?editDocId=${item.documentId}")
+                                        } else {
+                                            Toast.makeText(context, "Missing food reference for editing", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Unable to open editor: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        },
                         onRemove = {
                             scope.launch {
                                 val success = cartManager.removeFromCartById(item.documentId)
@@ -241,6 +262,7 @@ fun CartScreen(
 fun CartItemCard(
     cartItem: CartItem,
     onQuantityChange: (Int) -> Unit,
+    onEdit: (newAddOns: List<String>, newRemovals: List<String>) -> Unit,
     onRemove: () -> Unit
 ) {
     Card(
@@ -309,6 +331,26 @@ fun CartItemCard(
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Edit button
+                        TextButton(
+                            onClick = { 
+                                // Simple quick-edit: toggle Egg/Vegetable add-on for demo; replace with a full dialog if needed
+                                val currentAddOns = cartItem.foodAddOns.toMutableList()
+                                val currentRemovals = cartItem.foodRemovals.toMutableList()
+                                val options = listOf("Egg", "Vegetable")
+                                // For now, just flip Egg
+                                if (currentAddOns.contains("Egg")) currentAddOns.remove("Egg") else currentAddOns.add("Egg")
+                                onEdit(currentAddOns, currentRemovals)
+                            },
+                            modifier = Modifier.size(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = "✏️",
+                                fontSize = 16.sp
+                            )
+                        }
+
                         // Decrease quantity button with emoji
                         TextButton(
                             onClick = { onQuantityChange(cartItem.foodQuantity - 1) },

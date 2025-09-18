@@ -186,17 +186,7 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                     updatedAt = Date()
                 )
 
-                // Deduct coins before creating order
-                if (coinsUsed > 0) {
-                    val userRepo = com.example.taiwanesehouse.repository.UserRepository(
-                        com.example.taiwanesehouse.database.AppDatabase.getDatabase(getApplication()).userDao()
-                    )
-                    val deductResult = userRepo.deductCoinsFromUser(currentUser.uid, coinsUsed)
-                    if (deductResult.isFailure) {
-                        _error.value = deductResult.exceptionOrNull()?.message ?: "Failed to deduct coins"
-                        return@launch
-                    }
-                }
+                // Do NOT deduct coins here; handle coin deduction only after successful payment
 
                 val result = repository.createOrder(order)
                 if (result.isSuccess) {

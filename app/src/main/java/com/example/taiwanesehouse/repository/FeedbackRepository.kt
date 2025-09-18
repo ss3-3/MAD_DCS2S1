@@ -12,6 +12,11 @@ class FeedbackRepository(
     private val firestore: FirebaseFirestore
 ) {
 
+    // Add this method to FeedbackRepository
+    suspend fun getPendingFeedbackCount(userId: String): Int {
+        return feedbackDao.getPendingFeedbackCount(userId)
+    }
+
     // Get user feedback from local cache (for offline viewing)
     fun getUserFeedbackFlow(userId: String): Flow<List<FeedbackEntity>> {
         return feedbackDao.getUserFeedback(userId)
@@ -20,9 +25,9 @@ class FeedbackRepository(
     // Sync feedback from Firebase to local cache
     suspend fun syncFeedbackFromFirebase(userId: String) {
         try {
+            // Avoid composite index requirement by removing orderBy; sort client-side
             val firebaseFeedbacks = firestore.collection("feedback")
                 .whereEqualTo("userId", userId)
-                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(50)
                 .get()
                 .await()
@@ -44,7 +49,7 @@ class FeedbackRepository(
                 } catch (e: Exception) {
                     null
                 }
-            }
+            }.sortedByDescending { it.timestamp }
 
             // Clear old cache and insert new data
             feedbackDao.clearUserFeedback(userId)

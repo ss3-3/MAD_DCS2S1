@@ -210,6 +210,10 @@ class OrderRepository @Inject constructor(
                     )
                 }
 
+                // changes
+                val totalAmount = (data["totalAmount"] as? Number)?.toDouble() ?: 0.0
+                val subtotalAmount = (data["subtotalAmount"] as? Number)?.toDouble() ?: totalAmount
+
                 OrderEntity(
                     orderId = data["orderId"] as? String ?: orderId,
                     userId = data["userId"] as? String ?: "",
@@ -217,7 +221,7 @@ class OrderRepository @Inject constructor(
                     customerEmail = data["customerEmail"] as? String ?: "",
                     customerPhone = data["customerPhone"] as? String ?: "",
                     orderItems = orderItems,
-                    totalAmount = (data["totalAmount"] as? Number)?.toDouble() ?: 0.0,
+                    totalAmount = totalAmount, // changes
                     orderStatus = data["orderStatus"] as? String ?: "pending",
                     orderDate = (data["orderDate"] as? Timestamp)?.toDate()
                         ?: Date(),
@@ -228,10 +232,10 @@ class OrderRepository @Inject constructor(
                         ?: Date(),
                     updatedAt = (data["updatedAt"] as? Timestamp)?.toDate()
                         ?: Date(),
-                    subtotalAmount = TODO(),
-                    coinDiscount = TODO(),
-                    coinsUsed = TODO(),
-                    coinsEarned = TODO()
+                    subtotalAmount = subtotalAmount, // changes
+                    coinDiscount = (data["coinDiscount"] as? Number)?.toDouble() ?: 0.0,
+                    coinsUsed = (data["coinsUsed"] as? Number)?.toInt() ?: 0,
+                    coinsEarned = (data["coinsEarned"] as? Number)?.toInt() ?: 0
                 )
             } else {
                 null

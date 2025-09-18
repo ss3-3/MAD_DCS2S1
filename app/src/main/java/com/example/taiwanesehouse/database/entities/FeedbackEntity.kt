@@ -4,7 +4,7 @@ package com.example.taiwanesehouse.database.entities
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "feedback_cache")
+@Entity(tableName = "feedback")
 data class FeedbackEntity(
     @PrimaryKey val id: String,
     val userId: String,

@@ -7,10 +7,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface FeedbackDao {
 
-    @Query("SELECT * FROM feedback_cache WHERE userId = :userId ORDER BY timestamp DESC")
+    @Query("SELECT * FROM feedback WHERE userId = :userId ORDER BY timestamp DESC")
     fun getUserFeedback(userId: String): Flow<List<FeedbackEntity>>
 
-    @Query("SELECT * FROM feedback_cache WHERE userId = :userId ORDER BY timestamp DESC LIMIT 20")
+    @Query("SELECT * FROM feedback WHERE userId = :userId ORDER BY timestamp DESC LIMIT 20")
     suspend fun getUserFeedbackList(userId: String): List<FeedbackEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -19,15 +19,18 @@ interface FeedbackDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMultipleFeedback(feedbacks: List<FeedbackEntity>)
 
-    @Query("DELETE FROM feedback_cache WHERE userId = :userId")
+    @Query("DELETE FROM feedback WHERE userId = :userId")
     suspend fun clearUserFeedback(userId: String)
 
-    @Query("SELECT COUNT(*) FROM feedback_cache WHERE userId = :userId AND timestamp > :weekAgo")
+    @Query("SELECT COUNT(*) FROM feedback WHERE userId = :userId AND timestamp > :weekAgo")
     suspend fun getWeeklySubmissionCount(userId: String, weekAgo: Long): Int
 
-    @Query("SELECT * FROM feedback_cache WHERE userId = :userId AND isSynced = 0 ORDER BY timestamp ASC")
+    @Query("SELECT * FROM feedback WHERE userId = :userId AND isSynced = 0 ORDER BY timestamp ASC")
     suspend fun getPendingFeedback(userId: String): List<FeedbackEntity>
 
-    @Query("UPDATE feedback_cache SET isSynced = 1, status = :status WHERE id = :id")
+    @Query("UPDATE feedback SET isSynced = 1, status = :status WHERE id = :id")
     suspend fun markFeedbackSynced(id: String, status: String)
+
+    @Query("SELECT COUNT(*) FROM feedback WHERE userId = :userId AND isSynced = 0")
+    suspend fun getPendingFeedbackCount(userId: String): Int
 }

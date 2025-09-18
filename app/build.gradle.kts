@@ -96,6 +96,9 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
 
+    //User profile - photo
+    implementation("io.coil-kt:coil-compose:2.4.0")
+
     // Add Gson for type converters
     implementation("com.google.code.gson:gson:2.10.1")
 

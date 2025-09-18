@@ -2,7 +2,9 @@ package com.example.taiwanesehouse.payment
 
 import android.content.Context
 import android.util.Log
+import com.example.taiwanesehouse.database.AppDatabase
 import com.example.taiwanesehouse.database.entities.PaymentEntity
+import com.example.taiwanesehouse.repository.PaymentRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +18,12 @@ class FirebasePaymentManager(private val context: Context) {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private val paymentsCollection = firestore.collection("payments")
+    
+    // Use PaymentRepository for proper Firebase + Room sync
+    private val paymentRepository: PaymentRepository by lazy {
+        val database = AppDatabase.getDatabase(context)
+        PaymentRepository(database.paymentDao())
+    }
 
     // State flows
     private val _isProcessing = MutableStateFlow(false)
@@ -53,22 +61,14 @@ class FirebasePaymentManager(private val context: Context) {
                 updatedAt = Date()
             )
 
-            // Save to Firestore
-            val paymentData = mapOf(
-                "paymentId" to payment.paymentId,
-                "orderId" to payment.orderId,
-                "userId" to payment.userId,
-                "amount" to payment.amount,
-                "paymentMethod" to payment.paymentMethod,
-                "paymentStatus" to payment.paymentStatus,
-                "currency" to payment.currency,
-                "createdAt" to payment.createdAt,
-                "updatedAt" to payment.updatedAt
-            )
-
-            paymentsCollection.document(paymentId).set(paymentData).await()
-
-            Result.success(payment)
+            // Use PaymentRepository to save to both Firebase and Room
+            val result = paymentRepository.createPayment(payment)
+            
+            if (result.isSuccess) {
+                Result.success(payment)
+            } else {
+                result.map { payment }
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error creating payment: ${e.message}")
@@ -194,52 +194,28 @@ class FirebasePaymentManager(private val context: Context) {
         }
     }
 
-    // Update payment status in Firestore
+    // Update payment status (Firebase + Room)
     private suspend fun updatePaymentStatus(paymentId: String, status: String) {
         try {
-            paymentsCollection.document(paymentId)
-                .update(
-                    mapOf(
-                        "paymentStatus" to status,
-                        "updatedAt" to Date()
-                    )
-                )
-                .await()
+            paymentRepository.updatePaymentStatus(paymentId, status)
         } catch (e: Exception) {
             Log.e(TAG, "Error updating payment status: ${e.message}")
         }
     }
 
-    // Complete payment
+    // Complete payment (Firebase + Room)
     private suspend fun completePayment(paymentId: String, transactionId: String) {
         try {
-            paymentsCollection.document(paymentId)
-                .update(
-                    mapOf(
-                        "paymentStatus" to "completed",
-                        "transactionId" to transactionId,
-                        "paymentDate" to Date(),
-                        "updatedAt" to Date()
-                    )
-                )
-                .await()
+            paymentRepository.completePayment(paymentId, transactionId)
         } catch (e: Exception) {
             Log.e(TAG, "Error completing payment: ${e.message}")
         }
     }
 
-    // Fail payment
+    // Fail payment (Firebase + Room)
     private suspend fun failPayment(paymentId: String, reason: String) {
         try {
-            paymentsCollection.document(paymentId)
-                .update(
-                    mapOf(
-                        "paymentStatus" to "failed",
-                        "failureReason" to reason,
-                        "updatedAt" to Date()
-                    )
-                )
-                .await()
+            paymentRepository.failPayment(paymentId, reason)
         } catch (e: Exception) {
             Log.e(TAG, "Error failing payment: ${e.message}")
         }

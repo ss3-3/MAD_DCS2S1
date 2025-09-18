@@ -30,7 +30,6 @@ fun Payment(
 ) {
     val scope = rememberCoroutineScope()
     val cartItems by cartManager.cartItems.collectAsState()
-    val memberCoins by cartManager.memberCoins.collectAsState()
     val coinsToUse by cartManager.coinsToUse.collectAsState()
 
     var selectedPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }

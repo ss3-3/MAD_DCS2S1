@@ -1,6 +1,7 @@
 package com.example.taiwanesehouse.user_profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +20,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.taiwanesehouse.FirebaseCartManager
+import com.example.taiwanesehouse.dataclass.CartItem
+import com.example.taiwanesehouse.enumclass.Screen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -37,6 +41,15 @@ fun PaymentHistoryScreen(navController: NavController) {
     var payments by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    // Order preview and reorder state
+    var isOrderDialogOpen by remember { mutableStateOf(false) }
+    var isOrderDialogLoading by remember { mutableStateOf(false) }
+    var selectedOrderId by remember { mutableStateOf<String?>(null) }
+    var selectedOrderItems by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+
+    // Cart manager for reordering
+    val cartManager = remember { FirebaseCartManager() }
 
     // Check orientation changes
     val configuration = LocalConfiguration.current
@@ -58,9 +71,29 @@ fun PaymentHistoryScreen(navController: NavController) {
                     .get()
                     .await()
 
-                payments = snapshot.documents
-                    .mapNotNull { it.data }
-                    .sortedByDescending { (it["createdAt"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L }
+                // Build normalized list with required fields (ensure orderId/paymentId and sortable timestamp)
+                val normalized = snapshot.documents.mapNotNull { doc ->
+                    val data = doc.data ?: return@mapNotNull null
+                    val paymentId = (data["paymentId"] as? String) ?: doc.id
+                    val orderId = (data["orderId"] as? String) ?: paymentId
+                    val createdAtMs = (data["createdAt"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L
+                    val updatedAtMs = (data["updatedAt"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: createdAtMs
+                    data + mapOf(
+                        "paymentId" to paymentId,
+                        "orderId" to orderId,
+                        "_sortTs" to updatedAtMs
+                    )
+                }
+
+                // De-duplicate by orderId (fallback to paymentId) keeping the latest record
+                val latestById = normalized
+                    .groupBy { it["orderId"] as String }
+                    .values
+                    .map { group -> group.maxBy { (it["_sortTs"] as? Long) ?: 0L } }
+
+                // Sort latest-first and limit
+                payments = latestById
+                    .sortedByDescending { (it["_sortTs"] as? Long) ?: 0L }
                     .take(50)
             } catch (e: Exception) {
                 error = e.message
@@ -116,11 +149,129 @@ fun PaymentHistoryScreen(navController: NavController) {
                 else -> {
                     PaymentList(
                         payments = payments,
-                        isLandscape = isLandscape
+                        isLandscape = isLandscape,
+                        onClickPayment = { orderId ->
+                            scope.launch {
+                                try {
+                                    isOrderDialogLoading = true
+                                    selectedOrderId = orderId
+                                    isOrderDialogOpen = true
+
+                                    // Fetch order details from Firestore
+                                    val orderDoc = firestore.collection("orders").document(orderId).get().await()
+                                    val data = orderDoc.data
+                                    val items = (data?.get("orderItems") as? List<Map<String, Any>>).orEmpty()
+                                    selectedOrderItems = items
+                                } catch (e: Exception) {
+                                    error = e.message
+                                } finally {
+                                    isOrderDialogLoading = false
+                                }
+                            }
+                        },
+                        onOrderAgain = { orderId ->
+                            scope.launch {
+                                try {
+                                    isOrderDialogLoading = true
+                                    // Ensure we have items. If dialog not opened, fetch directly
+                                    val items = if (selectedOrderId == orderId && selectedOrderItems.isNotEmpty()) {
+                                        selectedOrderItems
+                                    } else {
+                                        val orderDoc = firestore.collection("orders").document(orderId).get().await()
+                                        (orderDoc.data?.get("orderItems") as? List<Map<String, Any>>).orEmpty()
+                                    }
+
+                                    // Add each item to cart
+                                    items.forEach { item ->
+                                        val cartItem = CartItem(
+                                            foodName = item["foodName"] as? String ?: "",
+                                            basePrice = (item["basePrice"] as? Number)?.toDouble() ?: 0.0,
+                                            foodQuantity = (item["quantity"] as? Number)?.toInt() ?: 1,
+                                            foodAddOns = (item["addOns"] as? List<String>) ?: emptyList(),
+                                            foodRemovals = (item["removals"] as? List<String>) ?: emptyList(),
+                                            imagesRes = (item["imageRes"] as? Number)?.toInt() ?: 0
+                                        )
+                                        cartManager.addToCart(cartItem)
+                                    }
+
+                                    // Navigate to cart
+                                    navController.navigate(Screen.Cart.name)
+                                } catch (e: Exception) {
+                                    error = e.message
+                                } finally {
+                                    isOrderDialogLoading = false
+                                }
+                            }
+                        }
                     )
                 }
             }
         }
+    }
+
+    // Order review dialog
+    if (isOrderDialogOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { isOrderDialogOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedOrderId?.let { onId ->
+                            // Trigger reorder
+                            scope.launch {
+                                isOrderDialogOpen = false
+                                isOrderDialogLoading = true
+                                try {
+                                    val items = selectedOrderItems
+                                    items.forEach { item ->
+                                        val cartItem = CartItem(
+                                            foodName = item["foodName"] as? String ?: "",
+                                            basePrice = (item["basePrice"] as? Number)?.toDouble() ?: 0.0,
+                                            foodQuantity = (item["quantity"] as? Number)?.toInt() ?: 1,
+                                            foodAddOns = (item["addOns"] as? List<String>) ?: emptyList(),
+                                            foodRemovals = (item["removals"] as? List<String>) ?: emptyList(),
+                                            imagesRes = (item["imageRes"] as? Number)?.toInt() ?: 0
+                                        )
+                                        cartManager.addToCart(cartItem)
+                                    }
+                                    navController.navigate(Screen.Cart.name)
+                                } finally {
+                                    isOrderDialogLoading = false
+                                }
+                            }
+                        }
+                    }
+                ) { Text("Order again") }
+            },
+            dismissButton = {
+                TextButton(onClick = { isOrderDialogOpen = false }) { Text("Close") }
+            },
+            title = { Text(text = "Order ${selectedOrderId ?: ""}") },
+            text = {
+                if (isOrderDialogLoading) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = Color(0xFFFFC107))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Loading order...")
+                    }
+                } else if (selectedOrderItems.isEmpty()) {
+                    Text("No items found for this order.")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        selectedOrderItems.forEach { item ->
+                            val name = item["foodName"] as? String ?: "Item"
+                            val qty = (item["quantity"] as? Number)?.toInt() ?: 1
+                            val addOns = (item["addOns"] as? List<String>).orEmpty()
+                            val removals = (item["removals"] as? List<String>).orEmpty()
+                            Text("$name x$qty")
+                            if (addOns.isNotEmpty()) Text("Add: ${addOns.joinToString(", ")}", color = Color.Gray)
+                            if (removals.isNotEmpty()) Text("Remove: ${removals.joinToString(", ")}", color = Color.Gray)
+                            Divider()
+                        }
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -252,7 +403,9 @@ private fun EmptyPaymentScreen() {
 @Composable
 private fun PaymentList(
     payments: List<Map<String, Any>>,
-    isLandscape: Boolean
+    isLandscape: Boolean,
+    onClickPayment: (orderId: String) -> Unit,
+    onOrderAgain: (orderId: String) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -272,7 +425,9 @@ private fun PaymentList(
         items(payments) { payment ->
             PaymentCard(
                 payment = payment,
-                isLandscape = isLandscape
+                isLandscape = isLandscape,
+                onClick = { orderId -> onClickPayment(orderId) },
+                onOrderAgain = { orderId -> onOrderAgain(orderId) }
             )
         }
 
@@ -285,7 +440,10 @@ private fun PaymentList(
 
 @Composable
 private fun PaymentSummaryCard(payments: List<Map<String, Any>>) {
-    val totalAmount = payments.sumOf { (it["amount"] as? Number)?.toDouble() ?: 0.0 }
+    // Only sum amounts for completed payments
+    val totalAmount = payments
+        .filter { (it["paymentStatus"] as? String)?.lowercase() == "completed" }
+        .sumOf { (it["amount"] as? Number)?.toDouble() ?: 0.0 }
     val completedCount = payments.count { (it["paymentStatus"] as? String)?.lowercase() == "completed" }
 
     Card(
@@ -348,12 +506,14 @@ private fun SummaryItem(
 @Composable
 private fun PaymentCard(
     payment: Map<String, Any>,
-    isLandscape: Boolean
+    isLandscape: Boolean,
+    onClick: (orderId: String) -> Unit,
+    onOrderAgain: (orderId: String) -> Unit
 ) {
     val amount = (payment["amount"] as? Number)?.toDouble() ?: 0.0
     val method = payment["paymentMethod"] as? String ?: "Unknown"
     val status = payment["paymentStatus"] as? String ?: "Unknown"
-    val paymentId = payment["paymentId"] as? String ?: "N/A"
+    val orderId = payment["orderId"] as? String ?: (payment["paymentId"] as? String ?: "N/A")
     val timestamp = payment["createdAt"] as? com.google.firebase.Timestamp
 
     val dateFormat = SimpleDateFormat(
@@ -363,7 +523,9 @@ private fun PaymentCard(
     val formattedDate = timestamp?.toDate()?.let { dateFormat.format(it) } ?: "Unknown date"
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = orderId != "N/A") { onClick(orderId) },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -453,17 +615,26 @@ private fun PaymentCard(
                     }
                 }
 
-                if (paymentId != "N/A") {
+                if (orderId != "N/A") {
                     Spacer(modifier = Modifier.height(8.dp))
                     Divider(color = Color.Gray.copy(alpha = 0.2f))
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "ID: $paymentId",
+                        text = "Order: $orderId",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { onOrderAgain(orderId) }) {
+                            Text("Order again")
+                        }
+                    }
                 }
             }
         }

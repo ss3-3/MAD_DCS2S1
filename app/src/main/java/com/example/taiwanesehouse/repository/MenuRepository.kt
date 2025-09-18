@@ -90,7 +90,7 @@ class MenuRepository @Inject constructor(
         return false
     }
 
-    private suspend fun syncFromFirebase() {
+    suspend fun syncFromFirebase() {
         try {
             Log.d(TAG, "Syncing menu data from Firebase...")
 
@@ -104,16 +104,28 @@ class MenuRepository @Inject constructor(
                 }
             }
 
-            if (firebaseItems.isNotEmpty()) {
+            // Use stable, local mapping for imageRes based on item id to avoid mismatches
+            val imageFallbackById = getInitialFoodItems().associateBy { it.id }
+            val normalizedItems = firebaseItems.map { entity ->
+                val fallback = imageFallbackById[entity.id]?.imageRes
+                if (fallback != null && fallback != 0) entity.copy(imageRes = fallback) else entity
+            }
+
+            if (normalizedItems.isNotEmpty()) {
                 // Clear existing data and insert new
                 foodItemDao.deleteAll()
-                foodItemDao.insertAll(firebaseItems)
-                Log.d(TAG, "Successfully synced ${firebaseItems.size} items from Firebase")
+                foodItemDao.insertAll(normalizedItems)
+                Log.d(TAG, "Successfully synced ${normalizedItems.size} items from Firebase (with stable images)")
+            } else {
+                // Firebase is empty, initialize local data
+                Log.d(TAG, "Firebase is empty, initializing local data...")
+                initializeLocalData()
             }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing from Firebase", e)
-            // Don't throw - let app work with cached data
+            // Fallback to local data if Firebase fails
+            initializeLocalData()
         }
     }
 
@@ -146,7 +158,7 @@ class MenuRepository @Inject constructor(
         }
     }
 
-    private suspend fun initializeLocalData() {
+    suspend fun initializeLocalData() {
         val count = foodItemDao.getCount()
         if (count == 0) {
             val initialItems = getInitialFoodItems()
@@ -520,5 +532,12 @@ class MenuRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing Firebase data", e)
         }
+    }
+
+    // Debug method to check database status
+    suspend fun getDatabaseStatus(): String {
+        val localCount = foodItemDao.getCount()
+        val firebaseCount = getFirebaseItemCount()
+        return "Local items: $localCount, Firebase items: $firebaseCount"
     }
 }
